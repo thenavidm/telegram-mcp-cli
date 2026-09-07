@@ -4,3 +4,5 @@ dist/
 *.log
 .env
 .env.local
+desktop-extension/build/
+desktop-extension/*.mcpb

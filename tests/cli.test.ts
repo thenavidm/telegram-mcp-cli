@@ -7,7 +7,7 @@
  * person actually types.
  */
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { flagsFor, parseArgs, isCliCommand } from "../src/cli.js";
@@ -146,17 +146,34 @@ describe("documentation stays in step with the code", () => {
   const names = (text: string): Set<string> => new Set(text.match(/TELEGRAM_[A-Z_]+/g) ?? []);
 
   /**
+   * Every source file, not a hand-listed few. A variable read from a module
+   * nobody remembered to add to the list is exactly the drift this catches.
+   */
+  const allSource = (): string => {
+    const dir = new URL("../src/", import.meta.url);
+    const walk = (u: URL): string[] =>
+      readdirSync(u, { withFileTypes: true }).flatMap((e) =>
+        e.isDirectory()
+          ? walk(new URL(`${e.name}/`, u))
+          : e.name.endsWith(".ts")
+            ? [readFileSync(new URL(e.name, u), "utf-8")]
+            : [],
+      );
+    return walk(dir).join("\n");
+  };
+
+  /**
    * Two variables shipped undocumented and five never reached `--help`, which is
    * the kind of drift nobody notices because both sides look complete on their own.
    */
   it("documents every environment variable the code reads", () => {
-    const used = names(["config.ts", "transport/http.ts"].map((f) => read(`../src/${f}`)).join("\n"));
+    const used = names(allSource());
     const documented = names(read("../README.md"));
     expect([...used].filter((v) => !documented.has(v))).toEqual([]);
   });
 
   it("lists every environment variable in --help", () => {
-    const used = names(["config.ts", "transport/http.ts"].map((f) => read(`../src/${f}`)).join("\n"));
+    const used = names(allSource());
     const helped = names(read("../src/index.ts"));
     // The help groups the three HTTP ones as `TELEGRAM_HTTP_PORT / _HOST / _TOKEN`.
     const shorthand = new Set(["TELEGRAM_HTTP_HOST", "TELEGRAM_HTTP_TOKEN"]);
