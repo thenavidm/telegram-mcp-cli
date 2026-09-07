@@ -13,6 +13,7 @@ import { startServer, VERSION } from "./server.js";
 const HELP = `telegram-mcp ${VERSION}
 
   telegram-mcp                Run over stdio. This is what an MCP client launches.
+  telegram-mcp --http         Run over HTTP, for a machine that is always on.
   telegram-mcp login          Sign in once and print a session string.
   telegram-mcp doctor         Check the setup and report what is wrong.
   telegram-mcp --version      Print the version.
@@ -29,6 +30,8 @@ Options:
   TELEGRAM_ALLOW_DESTRUCTIVE=1  permit the irreversible tools at all
   TELEGRAM_AUDIT_LOG          append-only log of every attempted write
   TELEGRAM_TIMEOUT            per-call deadline in seconds, default 30
+  TELEGRAM_HTTP_PORT / _HOST / _TOKEN   for --http. Loopback and a bearer token by default.
+  TELEGRAM_SESSION_<LABEL>    a second account, reachable with the account argument
 
 https://github.com/thenavidm/telegram-mcp-cli
 `;
@@ -97,6 +100,13 @@ async function main(): Promise<void> {
   if (command === "doctor") {
     const { runDoctor } = await import("./doctor.js");
     process.exitCode = await runDoctor();
+    return;
+  }
+
+  if (argv.includes("--http")) {
+    const { httpOptionsFromEnv, startHttpServer } = await import("./transport/http.js");
+    const { buildServer } = await import("./server.js");
+    await startHttpServer(buildServer(), httpOptionsFromEnv(argv));
     return;
   }
 

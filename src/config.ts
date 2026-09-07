@@ -7,10 +7,18 @@
  * string is, because it is full access to the account and does not expire.
  */
 
+export type Account = {
+  /** The name this account answers to, from the env var suffix. */
+  label: string;
+  session: string;
+};
+
 export type Config = {
   apiId: number;
   apiHash: string;
   session: string;
+  /** Every configured account, the first being the default. */
+  accounts: Account[];
   /** Refuse every write, whatever a tool asks for. */
   readOnly: boolean;
   /** Append every write attempt to this file. */
@@ -62,11 +70,46 @@ export function loadConfig(): Config {
     apiId,
     apiHash,
     session,
+    accounts: discoverAccounts(session),
     readOnly: process.env.TELEGRAM_READ_ONLY === "1",
     auditPath: process.env.TELEGRAM_AUDIT_LOG || undefined,
     allowDestructive: process.env.TELEGRAM_ALLOW_DESTRUCTIVE === "1",
     timeout: int("TELEGRAM_TIMEOUT", 30),
   };
+}
+
+/**
+ * Find every configured account.
+ *
+ * TELEGRAM_SESSION is the default. TELEGRAM_SESSION_<LABEL> adds a named one,
+ * so a personal and a work account can share one server and be chosen per call
+ * rather than per process.
+ */
+export function discoverAccounts(primary: string): Account[] {
+  const accounts: Account[] = primary ? [{ label: "default", session: primary }] : [];
+  for (const [key, value] of Object.entries(process.env)) {
+    const m = key.match(/^TELEGRAM_SESSION_([A-Z0-9_]+)$/);
+    if (!m || !value) continue;
+    accounts.push({ label: (m[1] as string).toLowerCase(), session: value });
+  }
+  return accounts;
+}
+
+/** Pick an account by name, loosely matched, defaulting to the first. */
+export function selectAccount(config: Config, hint?: string): Account {
+  const first = config.accounts[0];
+  if (!first) throw new ConfigError("No Telegram account is configured.");
+  if (!hint) return first;
+  const want = hint.toLowerCase();
+  const found =
+    config.accounts.find((a) => a.label === want) ??
+    config.accounts.find((a) => a.label.startsWith(want));
+  if (!found) {
+    throw new ConfigError(
+      `No account named "${hint}". Configured: ${config.accounts.map((a) => a.label).join(", ")}.`,
+    );
+  }
+  return found;
 }
 
 /** Config for `login`, which runs before a session exists. */

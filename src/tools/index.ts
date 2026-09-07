@@ -13,6 +13,9 @@ import { GROUP_TOOLS } from "./groups.js";
 import { ENGAGE_TOOLS } from "./engage.js";
 import { ORGANIZE_TOOLS } from "./organize.js";
 import { PROFILE_TOOLS } from "./profile.js";
+import { TOPIC_TOOLS } from "./topics.js";
+import { STICKER_TOOLS } from "./stickers.js";
+import { FOLDER_TOOLS } from "./folders.js";
 
 export const ALL_TOOLS = [
   ...ACCOUNT_TOOLS,
@@ -24,6 +27,9 @@ export const ALL_TOOLS = [
   ...ENGAGE_TOOLS,
   ...ORGANIZE_TOOLS,
   ...PROFILE_TOOLS,
+  ...TOPIC_TOOLS,
+  ...STICKER_TOOLS,
+  ...FOLDER_TOOLS,
 ] as unknown as AnyToolSpec[];
 
 /**

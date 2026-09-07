@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.3.0
+
+Full capability coverage.
+
+- **74 tools, up from 54.** Forum topics, inline buttons, stickers, GIFs,
+  albums, contact cards, transcription, folder CRUD, contact import and export,
+  and privacy writes.
+- **Several accounts.** `TELEGRAM_SESSION_<LABEL>` adds one, and every
+  account-scoped tool takes an optional `account`.
+- **HTTP transport.** `telegram-mcp --http` for an always-on process. Binds to
+  loopback and takes a bearer token, because a process holding a session string
+  should not be reachable from the network.
+- **`core` is still 13 tools and still 2,218 tokens.** Third release in a row
+  where the default did not move.
+
+| Profile | Tools | Every turn |
+|---|---|---|
+| `core` (default) | 13 | 2,218 |
+| `read` | 31 | 4,673 |
+| `full` | 74 | 11,643 |
+| CLI | all 74 | 175 |
+
+For comparison, the leading Telegram MCP server is 127 tools at 21,096 tokens,
+with no CLI and no way to load fewer.
+
+
 ## 0.2.0
 
 Full capability coverage, without moving what the default costs.

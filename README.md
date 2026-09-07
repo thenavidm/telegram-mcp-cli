@@ -8,7 +8,7 @@
 [![X](https://img.shields.io/badge/X-@thenavidm-black?logo=x)](https://x.com/thenavidm)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-thenavidm-0A66C2?logo=linkedin&logoColor=white)](https://linkedin.com/in/thenavidm)
 
-Telegram MCP server and CLI for Claude Code and AI agents. 54 tools for chats, history, search, sending, media, contacts, groups, admin, reactions, polls and folders, on your real account.
+Telegram MCP server and CLI for Claude Code and AI agents. 74 tools for chats, history, search, sending, media, contacts, groups, admin, topics, reactions, polls, folders and privacy, on your real account.
 
 One install gives you both surfaces, the same tools under the same names,
 covering what the app does rather than what a bot is allowed to see.
@@ -417,8 +417,8 @@ server was booted and its real tool list enumerated, not read off its README.
 
 | | Tools | Every turn | CLI |
 |---|---|---|---|
-| **this, `core`** | 13 | **2,218** | yes, all 54 |
-| **this, `full`** | 54 | 8,502 | yes, all 54 |
+| **this, `core`** | 13 | **2,218** | yes, all 74 |
+| **this, `full`** | 74 | 11,643 | yes, all 74 |
 | chigwell/telegram-mcp | 127 | 21,096 | none |
 
 Their 127 is not 127 capabilities. They ship `get_messages`, `list_messages`
@@ -428,12 +428,12 @@ and `get_history` separately, `get_chats` alongside `list_chats`,
 `delete` takes a list, `get_participants` filters to admins or banned, and
 `set_admin` demotes with `promote: false`.
 
-So the same ground is covered by 54 definitions rather than 127, and you only
+So the same ground is covered by 74 definitions rather than 127, and you only
 load the 13 you use daily.
 
 The number that matters is the standing one. Connecting their server costs
 21,096 tokens on every turn whether Telegram comes up or not. This costs 2,218,
-or 175 if you use the CLI and skip the server.
+or 175 if you use the CLI and skip the server. At full coverage this is 11,643 against their 21,096, and the default is still 2,218.
 
 ### Spending less
 
@@ -442,8 +442,8 @@ or 175 if you use the CLI and skip the server.
 | Profile | Tools | Every turn |
 |---|---|---|
 | `core` (default) | 13 | 2,218 tokens |
-| `read` | 24 | 3,710 tokens |
-| `full` | 54 | 8,502 tokens |
+| `read` | 31 | 4,673 tokens |
+| `full` | 74 | 11,643 tokens |
 
 **Turn the server off when you are not using Telegram.** In Claude Code that is
 `@telegram` to toggle, and every client has an equivalent.
@@ -680,6 +680,32 @@ accounts limited. This is built for reading your own chats and answering them.
 |---|---|
 | `TELEGRAM_TOOLS` | `core` (default), `full`, or `read`. Decides context cost |
 | `TELEGRAM_TIMEOUT` | Per-call deadline in seconds, default 30 |
+
+**Several accounts**
+
+| Variable | What it does |
+|---|---|
+| `TELEGRAM_SESSION_<LABEL>` | A second account, for example `TELEGRAM_SESSION_WORK`. Reach it with the `account` argument |
+
+Every account-scoped tool takes an optional `account`, matched loosely against
+the label, so one server can hold a personal and a work account rather than
+running two.
+
+**Running it always on**
+
+| Variable | What it does |
+|---|---|
+| `TELEGRAM_HTTP_PORT` | Port for `--http`, default 8787 |
+| `TELEGRAM_HTTP_HOST` | Interface for `--http`, default `127.0.0.1` |
+| `TELEGRAM_HTTP_TOKEN` | Bearer token required on every HTTP request |
+
+```bash
+telegram-mcp --http --port=8787
+```
+
+Binds to loopback, because a process holding a session string should not be
+reachable from the network. Moving it off loopback without setting
+`TELEGRAM_HTTP_TOKEN` hands your account to anyone who can route to the port.
 
 ## Versions
 

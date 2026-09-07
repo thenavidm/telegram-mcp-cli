@@ -66,6 +66,16 @@ export const confirmArg = {
 };
 
 /** Field projection, on every tool that returns a list. */
+/** The optional argument that picks an account, on every account-scoped tool. */
+export const accountArg = {
+  account: z
+    .string()
+    .optional()
+    .describe(
+      "Which configured account to act as, matched loosely against its label. Defaults to the first.",
+    ),
+};
+
 export const selectArg = {
   fields: z
     .string()

@@ -13,9 +13,9 @@ import { WriteGuard } from "./safety.js";
 import { makeContext, register } from "./tools/kit.js";
 import { activeProfile, toolsFor } from "./tools/index.js";
 
-export const VERSION = "0.2.0";
+export const VERSION = "0.3.0";
 
-export async function startServer(): Promise<void> {
+export function buildServer(): McpServer {
   const config = loadConfig();
   const api = new TelegramApi(config);
   const guard = new WriteGuard(config, "mcp");
@@ -30,8 +30,12 @@ export async function startServer(): Promise<void> {
     register(server, ctx, spec);
   }
 
+  return server;
+}
+
+export async function startServer(): Promise<void> {
   // stdio carries the JSON-RPC stream, so nothing else may write to stdout.
   // Anything this process wants to say goes to stderr.
   const transport = new StdioServerTransport();
-  await server.connect(transport);
+  await buildServer().connect(transport);
 }
