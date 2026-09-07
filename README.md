@@ -762,6 +762,29 @@ Binds to loopback, because a process holding a session string should not be
 reachable from the network. Moving it off loopback without setting
 `TELEGRAM_HTTP_TOKEN` hands your account to anyone who can route to the port.
 
+## Running it 24/7
+
+For claude.ai, your phone, or the channel, the server has to be reachable when
+the call happens. `deploy/install.sh` sets that up on a Linux box:
+
+```bash
+sudo bash deploy/install.sh
+sudo nano /etc/telegram-mcp.env
+sudo systemctl start telegram-mcp
+```
+
+Own user, own directory, port 8788 bound to loopback only, systemd unit that
+restarts on failure and starts on boot. Put your reverse proxy in front of
+`127.0.0.1:8788`.
+
+`telegram-mcp login` runs on your laptop, not the server: it asks for a phone
+code interactively. Paste the session string into the env file.
+
+Worth knowing: **a Telegram session does not expire and needs no live
+connection.** The process can be down for a month and reconnect with the same
+string. A server buys reachability, not session survival, so if you only use
+the CLI you do not need one at all.
+
 ## Versions
 
 See [CHANGELOG.md](CHANGELOG.md).
