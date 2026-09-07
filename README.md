@@ -410,30 +410,62 @@ what makes the tools usable without guessing.
 For contrast, a Telegram MCP server shipping 80 tools pays that structural cost
 eight times over, on every turn, before anyone asks it anything.
 
-### Compared with the alternatives
+### How this compares
 
-Measured the same way, on the same day, with the same tokeniser. The other
-server was booted and its real tool list enumerated, not read off its README.
+There are a dozen or so Telegram MCP servers. They cluster into three shapes,
+and the trade each one makes is worth understanding before picking any of them,
+including this one.
 
-| | Tools | Every turn | CLI |
-|---|---|---|---|
-| **this, `core`** | 13 | **2,218** | yes, all 74 |
-| **this, `full`** | 74 | 11,643 | yes, all 74 |
-| chigwell/telegram-mcp | 127 | 21,096 | none |
+| | This server | Minimal servers | Comprehensive servers | Official channel plugin |
+|---|---|---|---|---|
+| Tools | 13 default, 74 available | 2 to 8 | up to 127 | n/a, a chat bridge |
+| Tokens every turn | **2,218**, or 11,643 at full | ~400 to 1,500 | up to **21,096** | small |
+| Reads your real chats | yes | yes | yes | **no, bot only** |
+| CLI surface | **yes, all 74** | no | no | no |
+| Choose what loads | **yes, profiles** | fixed | fixed | n/a |
+| Runs unconfigured | **yes, self-diagnoses** | varies | often crashes at import | n/a |
+| Transports | stdio, HTTP | stdio, some HTTP | stdio, HTTP, SSE | stdio |
 
-Their 127 is not 127 capabilities. They ship `get_messages`, `list_messages`
-and `get_history` separately, `get_chats` alongside `list_chats`,
-`delete_message` beside `delete_messages_bulk`, and `forward_message` beside
-`forward_messages`. Here one tool takes an argument instead: `history` pages,
-`delete` takes a list, `get_participants` filters to admins or banned, and
-`set_admin` demotes with `promote: false`.
+Every number in the first and fourth columns was measured against a running
+server with a tokeniser, not read off a README.
 
-So the same ground is covered by 74 definitions rather than 127, and you only
-load the 13 you use daily.
+**Minimal servers** collapse everything into a handful of very general tools,
+sometimes with a raw MTProto escape hatch. That is genuinely cheap and it is a
+reasonable design. The cost is discoverability: a model has to know the API to
+drive one general tool correctly, and the errors when it guesses wrong are
+worse than a missing tool.
 
-The number that matters is the standing one. Connecting their server costs
-21,096 tokens on every turn whether Telegram comes up or not. This costs 2,218,
-or 175 if you use the CLI and skip the server. At full coverage this is 11,643 against their 21,096, and the default is still 2,218.
+**Comprehensive servers** go the other way, one tool per operation. Everything
+is discoverable, and you pay for all of it on every turn whether Telegram comes
+up or not. At the top of the range that is 21,096 tokens standing.
+
+**This one refuses the trade.** Tools are named and discoverable like the
+comprehensive servers, but you choose how many load. The default is 13. The
+long tail lives in the CLI, which costs 175 tokens standing because a shell
+command is not sent to the model until it is typed.
+
+**The official channel plugin is a different thing entirely.** It is a
+BotFather bot, so it can only ever see messages sent to that bot. Your own
+chats, groups and history are invisible to it. It is a good way to talk *to*
+Claude from your phone, and no way at all to let Claude read your Telegram.
+
+### Where the capability goes
+
+Coverage does not require one tool per operation. Capabilities ride on
+arguments instead:
+
+| One tool here | Replaces |
+|---|---|
+| `get_participants --filter admins\|banned\|kicked\|bots` | 4 separate tools |
+| `set_admin --promote false` | promote and demote |
+| `set_banned --ban false` | ban and unban |
+| `pin --pin false` | pin and unpin |
+| `react` with no emoji | react and remove reaction |
+| `archive` / `mute`, both reversible | 4 tools |
+| `update_folder --add --remove` | add to folder, remove from folder |
+| `save_draft ""` | save and clear |
+
+That is how the same ground is covered by 74 definitions rather than 127.
 
 ### Spending less
 
@@ -690,6 +722,29 @@ accounts limited. This is built for reading your own chats and answering them.
 Every account-scoped tool takes an optional `account`, matched loosely against
 the label, so one server can hold a personal and a work account rather than
 running two.
+
+**Pushing messages into a session**
+
+| Variable | What it does |
+|---|---|
+| `TELEGRAM_CHANNEL_ALLOW` | Allowlist path for `--channel`, default `~/.telegram-mcp/channel-allow.json` |
+
+```bash
+telegram-mcp --channel
+```
+
+Runs as a Claude Code channel, pushing real Telegram messages into a session
+that is already open. The official Telegram channel is a bot, so it only sees
+messages sent to that bot. This one is backed by your account, so an event can
+come from any chat you are actually in.
+
+Nothing is forwarded until you allow a chat, which the `allow_chat` tool does.
+That default matters: without it every message in every group you are in
+becomes model input, which is both expensive and a prompt-injection surface.
+
+Each allowed chat can carry a persona name, and it arrives on the event as
+`persona`, so one session can answer as a different assistant depending on
+which chat the message came from.
 
 **Running it always on**
 

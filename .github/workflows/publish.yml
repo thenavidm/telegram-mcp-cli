@@ -20,6 +20,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: npm test --if-present
 
       # The tag and package.json disagreeing is how a wrong version reaches npm
       # and cannot be taken back, so it fails here instead.
@@ -27,9 +28,33 @@ jobs:
         run: |
           tag="${GITHUB_REF_NAME#v}"
           pkg="$(node -p "require('./package.json').version")"
-          [ "$tag" = "$pkg" ] || { echo "tag $tag != package.json $pkg"; exit 1; }
+          [ "$tag" = "$pkg" ] || { echo "::error::tag $tag does not match package.json $pkg"; exit 1; }
 
-      - run: npm publish --access public --provenance
+      # Two things make a tag push fail noisily for no good reason: no token
+      # configured, and a version already published by hand. Neither is a
+      # broken build, so both skip with a notice instead of a red run.
+      - name: Decide whether to publish
+        id: decide
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "::notice::NPM_TOKEN is not set on this repository, skipping the npm publish. Add it in Settings, Secrets and variables, Actions."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "::notice::${name}@${version} is already on npm, skipping the publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm
+        if: steps.decide.outputs.publish == 'true'
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

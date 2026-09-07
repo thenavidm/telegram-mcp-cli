@@ -14,6 +14,7 @@ const HELP = `telegram-mcp ${VERSION}
 
   telegram-mcp                Run over stdio. This is what an MCP client launches.
   telegram-mcp --http         Run over HTTP, for a machine that is always on.
+  telegram-mcp --channel      Push real Telegram messages into a running Claude session.
   telegram-mcp login          Sign in once and print a session string.
   telegram-mcp doctor         Check the setup and report what is wrong.
   telegram-mcp --version      Print the version.
@@ -32,6 +33,7 @@ Options:
   TELEGRAM_TIMEOUT            per-call deadline in seconds, default 30
   TELEGRAM_HTTP_PORT / _HOST / _TOKEN   for --http. Loopback and a bearer token by default.
   TELEGRAM_SESSION_<LABEL>    a second account, reachable with the account argument
+  TELEGRAM_CHANNEL_ALLOW      allowlist path for --channel, default ~/.telegram-mcp/channel-allow.json
 
 https://github.com/thenavidm/telegram-mcp-cli
 `;
@@ -100,6 +102,12 @@ async function main(): Promise<void> {
   if (command === "doctor") {
     const { runDoctor } = await import("./doctor.js");
     process.exitCode = await runDoctor();
+    return;
+  }
+
+  if (argv.includes("--channel")) {
+    const { startChannel } = await import("./channel.js");
+    await startChannel();
     return;
   }
 
