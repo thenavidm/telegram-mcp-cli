@@ -6,3 +6,4 @@ dist/
 .env.local
 desktop-extension/build/
 desktop-extension/*.mcpb
+.npmrc
