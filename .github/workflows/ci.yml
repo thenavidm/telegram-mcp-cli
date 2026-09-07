@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test --if-present
+
+      # A unit test can pass while the server fails to speak the protocol at
+      # all, so the handshake is checked for real rather than mocked.
+      - name: Real tools/list handshake
+        env:
+          TELEGRAM_API_ID: "1"
+          TELEGRAM_API_HASH: "x"
+          TELEGRAM_SESSION: "y"
+        run: |
+          printf '%s\n%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | node dist/index.js > handshake.jsonl
+          node -e "
+            const lines = require('fs').readFileSync('handshake.jsonl','utf8').split('\n').filter(Boolean).map(JSON.parse);
+            const list = lines.find(l => l.id === 2);
+            if (!list?.result?.tools?.length) { console.error('no tools returned'); process.exit(1); }
+            console.log('tools advertised:', list.result.tools.length);
+          "
+
+      - name: Unconfigured exits 10
+        run: |
+          set +e
+          node dist/index.js --cli whoami
+          code=$?
+          set -e
+          [ "$code" = "10" ] || { echo "expected exit 10, got $code"; exit 1; }
