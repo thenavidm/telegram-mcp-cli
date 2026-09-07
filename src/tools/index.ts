@@ -8,12 +8,22 @@ import { ACCOUNT_TOOLS } from "./account.js";
 import { CHAT_TOOLS } from "./chats.js";
 import { MESSAGE_TOOLS } from "./messages.js";
 import { MEDIA_TOOLS } from "./media.js";
+import { CONTACT_TOOLS } from "./contacts.js";
+import { GROUP_TOOLS } from "./groups.js";
+import { ENGAGE_TOOLS } from "./engage.js";
+import { ORGANIZE_TOOLS } from "./organize.js";
+import { PROFILE_TOOLS } from "./profile.js";
 
 export const ALL_TOOLS = [
   ...ACCOUNT_TOOLS,
   ...CHAT_TOOLS,
   ...MESSAGE_TOOLS,
   ...MEDIA_TOOLS,
+  ...CONTACT_TOOLS,
+  ...GROUP_TOOLS,
+  ...ENGAGE_TOOLS,
+  ...ORGANIZE_TOOLS,
+  ...PROFILE_TOOLS,
 ] as unknown as AnyToolSpec[];
 
 /**

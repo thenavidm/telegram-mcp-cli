@@ -64,10 +64,17 @@ The command is the tool name with dashes: `list_chats` runs as `list-chats`.
 
 | Group | Commands |
 |---|---|
-| Account | `whoami`, `resolve`, `doctor` |
-| Chats | `list-chats`, `get-chat` |
-| Reading | `history`, `search`, `download-media` |
-| Writing | `send`*, `send-file`*, `edit`*, `forward`*, `mark-read`*, `delete`! |
+| Account | `whoami`, `resolve`, `doctor`, `update-profile`*, `get-privacy` |
+| Chats | `list-chats`, `get-chat`, `get-full-chat`, `archive`*, `mute`*, `common-chats`, `search-public` |
+| Reading | `history`, `search`, `download-media`, `media-info`, `get-pinned`, `get-scheduled` |
+| Writing | `send`*, `send-file`*, `send-voice`*, `edit`*, `forward`*, `mark-read`*, `save-draft`*, `delete`! |
+| Engaging | `react`*, `get-reactions`, `pin`*, `create-poll`*, `message-link` |
+| Contacts | `list-contacts`, `search-contacts`, `get-user`, `add-contact`*, `block`*, `unblock`*, `list-blocked`, `delete-contact`! |
+| Groups | `create-group`*, `join-chat`*, `invite-to-chat`*, `invite-link`*, `get-participants`, `edit-chat`*, `set-admin`*, `leave-chat`!, `set-banned`! |
+| Organising | `list-folders`, `list-drafts`, `delete-history`!, `delete-scheduled`! |
+
+Run `telegram-cli` for the live list. `TELEGRAM_TOOLS=full` exposes all 54 to
+the MCP server; the CLI always has every one.
 
 `peer` is the same argument everywhere: a `@username`, a numeric id, or `me` for
 Saved Messages. When you only have a name, run `resolve` or `list-chats` first
@@ -156,6 +163,5 @@ claude mcp add telegram \
   -- npx -y @thenavidm/telegram-mcp-cli
 ```
 
-Worth knowing before suggesting it: the server costs about 2,218 tokens on every
-turn, whether Telegram comes up or not. The CLI costs nothing until it is typed.
+Worth knowing before suggesting it: the server costs 2,218 tokens on every turn for its 13 core tools, whether Telegram comes up or not. The CLI carries all 54 for 175 tokens standing, and the rest only when it is typed.
 For occasional use the CLI is the better trade.

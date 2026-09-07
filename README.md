@@ -8,7 +8,7 @@
 [![X](https://img.shields.io/badge/X-@thenavidm-black?logo=x)](https://x.com/thenavidm)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-thenavidm-0A66C2?logo=linkedin&logoColor=white)](https://linkedin.com/in/thenavidm)
 
-Telegram MCP server and CLI for Claude Code and AI agents. 13 tools for chats, history, search, sending, media and contacts, on your real account.
+Telegram MCP server and CLI for Claude Code and AI agents. 54 tools for chats, history, search, sending, media, contacts, groups, admin, reactions, polls and folders, on your real account.
 
 One install gives you both surfaces, the same tools under the same names,
 covering what the app does rather than what a bot is allowed to see.
@@ -410,15 +410,40 @@ what makes the tools usable without guessing.
 For contrast, a Telegram MCP server shipping 80 tools pays that structural cost
 eight times over, on every turn, before anyone asks it anything.
 
+### Compared with the alternatives
+
+Measured the same way, on the same day, with the same tokeniser. The other
+server was booted and its real tool list enumerated, not read off its README.
+
+| | Tools | Every turn | CLI |
+|---|---|---|---|
+| **this, `core`** | 13 | **2,218** | yes, all 54 |
+| **this, `full`** | 54 | 8,502 | yes, all 54 |
+| chigwell/telegram-mcp | 127 | 21,096 | none |
+
+Their 127 is not 127 capabilities. They ship `get_messages`, `list_messages`
+and `get_history` separately, `get_chats` alongside `list_chats`,
+`delete_message` beside `delete_messages_bulk`, and `forward_message` beside
+`forward_messages`. Here one tool takes an argument instead: `history` pages,
+`delete` takes a list, `get_participants` filters to admins or banned, and
+`set_admin` demotes with `promote: false`.
+
+So the same ground is covered by 54 definitions rather than 127, and you only
+load the 13 you use daily.
+
+The number that matters is the standing one. Connecting their server costs
+21,096 tokens on every turn whether Telegram comes up or not. This costs 2,218,
+or 175 if you use the CLI and skip the server.
+
 ### Spending less
 
 **Pick a smaller profile.** `TELEGRAM_TOOLS` decides what is advertised:
 
 | Profile | Tools | Every turn |
 |---|---|---|
-| `read` | 7 | 1,241 tokens |
 | `core` (default) | 13 | 2,218 tokens |
-| `full` | 13 | 2,218 tokens |
+| `read` | 24 | 3,710 tokens |
+| `full` | 54 | 8,502 tokens |
 
 **Turn the server off when you are not using Telegram.** In Claude Code that is
 `@telegram` to toggle, and every client has an equivalent.

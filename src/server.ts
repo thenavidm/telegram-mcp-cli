@@ -13,7 +13,7 @@ import { WriteGuard } from "./safety.js";
 import { makeContext, register } from "./tools/kit.js";
 import { activeProfile, toolsFor } from "./tools/index.js";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 
 export async function startServer(): Promise<void> {
   const config = loadConfig();
