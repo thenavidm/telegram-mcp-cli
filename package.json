@@ -1,0 +1,58 @@
+{
+  "name": "@thenavidm/telegram-mcp-cli",
+  "version": "0.1.0",
+  "description": "Telegram MCP server and CLI for Claude Code and AI agents. Full account access over MTProto: chats, history, search, sending, media and contacts.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "telegram-mcp": "dist/index.js",
+    "telegram-cli": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "telegram": "^2.26.22",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "SKILL.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "author": "Navid Moazzez (https://navid.me)",
+  "homepage": "https://github.com/thenavidm/telegram-mcp-cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thenavidm/telegram-mcp-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/thenavidm/telegram-mcp-cli/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "telegram",
+    "mtproto",
+    "cli",
+    "claude",
+    "ai-agents"
+  ]
+}
