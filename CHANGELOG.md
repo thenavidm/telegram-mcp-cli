@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.0
+
+The channel surface, which is the part nobody else has.
+
+- **`telegram-mcp --channel`** pushes real Telegram messages into a Claude Code
+  session that is already open. The official Telegram channel is a BotFather
+  bot and can only see messages sent to that bot; this is backed by MTProto, so
+  an event can come from any chat you are actually in.
+- **Nothing forwards until a chat is allowed.** `allow_chat` opts one in. That
+  default is deliberate: without it every message in every group becomes model
+  input, which is both expensive and a prompt-injection surface.
+- **Personas.** Each allowed chat can carry a name, delivered on the event as
+  `persona`, so one session can answer as a different assistant depending on
+  which chat a message came from.
+- The channel keeps its MCP surface up when Telegram is unreachable, rather
+  than exiting, so a bad session reports itself instead of disappearing.
+- The publish workflow no longer fails a tag when `NPM_TOKEN` is unset or the
+  version is already on npm. Both skip with a notice.
+- The README comparison no longer names other projects.
+
 ## 0.3.0
 
 Full capability coverage.

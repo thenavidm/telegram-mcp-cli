@@ -20,6 +20,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { TelegramApi } from "./api/client.js";
 import { loadConfig } from "./config.js";
+import { VERSION } from "./server.js";
 import { displayName, sanitize, truncate } from "./format/render.js";
 
 type Any = Record<string, unknown>;
@@ -62,7 +63,7 @@ export async function startChannel(): Promise<void> {
   const api = new TelegramApi(config);
 
   const server = new Server(
-    { name: "telegram-channel", version: "0.4.0" },
+    { name: "telegram-channel", version: VERSION },
     // `claude/channel` is an Anthropic extension the SDK's typed capability map
     // does not know about, so the cast lives here rather than being worked
     // around by dropping the declaration the runtime requires.
