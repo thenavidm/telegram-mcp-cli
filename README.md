@@ -20,7 +20,7 @@ answer in it.
 
 Built and maintained by [Navid Moazzez](https://navid.me?utm_source=github&utm_medium=readme&utm_campaign=telegram-mcp-cli).
 
-<img src="https://cdn.navid.media/repos/telegram-mcp-cli.gif?v=2" alt="Claude Code using the Telegram MCP server" width="520">
+<img src="https://cdn.navid.media/repos/telegram-mcp-cli.gif?v=3" alt="Claude Code using the Telegram MCP server" width="520">
 
 ## Two ways to use it
 
