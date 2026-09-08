@@ -13,7 +13,7 @@ import { WriteGuard } from "./safety.js";
 import { makeContext, register } from "./tools/kit.js";
 import { activeProfile, toolsFor } from "./tools/index.js";
 
-export const VERSION = "0.4.1";
+export const VERSION = "0.4.2";
 
 export function buildServer(): McpServer {
   const config = loadConfig();

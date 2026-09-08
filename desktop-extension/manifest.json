@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "telegram",
   "display_name": "Telegram",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Telegram MCP server for Claude Code and AI agents. 74 tools for chats, history, search, sending, media, contacts, groups, admin, topics, reactions, polls and folders, on your real account.",
   "long_description": "Connects Claude to your own Telegram account over MTProto.\n\nMost Telegram integrations are bots, and a bot only sees messages sent to that bot. This signs in as you, so it can read the group you were actually talking in and answer in it.\n\nSetup needs an api_id and api_hash from my.telegram.org, then a one-time phone login that produces a session string. That string is full access to the account and does not expire, so it is stored as a sensitive value and can be revoked from Telegram under Settings, Devices.\n\nSending posts as you and deleting with revoke removes messages for everyone, so delete refuses to run without an explicit confirmation and is disabled entirely unless you turn it on.",
   "author": {

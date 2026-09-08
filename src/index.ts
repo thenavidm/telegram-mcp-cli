@@ -114,7 +114,7 @@ async function main(): Promise<void> {
   if (argv.includes("--http")) {
     const { httpOptionsFromEnv, startHttpServer } = await import("./transport/http.js");
     const { buildServer } = await import("./server.js");
-    await startHttpServer(buildServer(), httpOptionsFromEnv(argv));
+    await startHttpServer(buildServer, httpOptionsFromEnv(argv));
     return;
   }
 

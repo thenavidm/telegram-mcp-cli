@@ -42,13 +42,15 @@ function unauthorized(res: ServerResponse): void {
 }
 
 /**
- * Serve one MCP server over streamable HTTP.
+ * Serve MCP over streamable HTTP.
  *
- * Each session gets its own transport, keyed by the session id the SDK issues,
- * so two clients cannot read each other's responses.
+ * A server instance is built per session, not shared. The SDK's Protocol
+ * refuses to connect one instance to a second transport, so reusing it crashed
+ * the process the moment a client opened a second session, which a single
+ * hand-run curl never does but a real client does immediately.
  */
 export async function startHttpServer(
-  server: McpServer,
+  makeServer: () => McpServer,
   options: HttpOptions,
 ): Promise<void> {
   const sessions = new Map<string, StreamableHTTPServerTransport>();
@@ -93,7 +95,7 @@ export async function startHttpServer(
         const sid = transport?.sessionId;
         if (sid) sessions.delete(sid);
       };
-      await server.connect(transport);
+      await makeServer().connect(transport);
     }
 
     await transport.handleRequest(req, res);
