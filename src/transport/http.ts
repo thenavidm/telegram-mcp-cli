@@ -68,6 +68,18 @@ export async function startHttpServer(
     }
 
     const id = (req.headers["mcp-session-id"] as string | undefined) ?? undefined;
+
+    // A GET with no session is a client probing the endpoint, not resuming a
+    // stream. Handing it to the SDK makes a fresh transport that answers
+    // "Server not initialized" with a 400, and clients read that as "this is
+    // not an MCP server". Refusing with 405 is what the working hosted
+    // connectors do, and it is what a stateless endpoint should say.
+    if (req.method === "GET" && !id) {
+      res.writeHead(405, { "content-type": "application/json", allow: "POST, DELETE, OPTIONS" });
+      res.end(JSON.stringify({ error: "Method Not Allowed. Open a session with POST initialize." }));
+      return;
+    }
+
     let transport = id ? sessions.get(id) : undefined;
 
     if (!transport) {
