@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.2
+
+Fixes the bug that made the hosted connector unusable.
+
+- **A server instance is now built per session.** One `McpServer` was connected
+  to every new transport, which the SDK refuses, so the process crashed the
+  moment a client opened a second session. A hand-run curl only ever opens one,
+  which is why it passed every test and returned 502s in practice.
+
+## 0.4.1
+
+- **A bare `GET` answers 405 rather than 400.** Clients probe the endpoint
+  before opening a session. That reached the SDK, which built a throwaway
+  transport and replied `Server not initialized` with a 400, and the client
+  read it as "not an MCP server".
+
 ## 0.4.0
 
 The channel surface, which is the part nobody else has.
