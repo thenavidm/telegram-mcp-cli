@@ -251,7 +251,8 @@ claude mcp add telegram \
 
 The short way: download the [`.mcpb` extension](https://github.com/thenavidm/telegram-mcp-cli/releases/latest)
 from the latest release and double-click it. It carries its own dependencies,
-so there is no config file to edit and nothing to install first. It asks for your API ID, API hash and session string in a form.
+so there is no config file to edit and nothing to install first. It asks for your API ID, API hash and session string in a form, and stores them
+as sensitive fields rather than plain text in a config file.
 
 The long way, if you would rather edit the config yourself:
 
@@ -274,19 +275,6 @@ Settings → Developer → Edit Config, then add:
 ```
 
 Restart Claude Desktop afterwards.
-
-### Claude Desktop, as an extension
-
-Build the `.mcpb` and double click it, which installs without touching JSON:
-
-```bash
-git clone https://github.com/thenavidm/telegram-mcp-cli
-cd telegram-mcp-cli && npm install
-bash desktop-extension/build.sh
-```
-
-It asks for the three values in a settings panel and stores them as sensitive
-fields rather than plain text in a config file.
 
 ### Cursor
 
