@@ -86,7 +86,8 @@ function kindOf(schema: ZodTypeAny): { kind: FlagKind; choices?: string[]; repea
       // An enum element is a word you type, so it belongs with the scalars.
       const scalar =
         elementKind === "ZodString" || elementKind === "ZodNumber" || elementKind === "ZodEnum";
-      return { kind: scalar ? "string" : "json", repeatable: true };
+      // A list of numbers parses each value as a number, or `--ids 1 --ids 2` fails validation.
+      return { kind: elementKind === "ZodNumber" ? "number" : scalar ? "string" : "json", repeatable: true };
     }
     default:
       // Objects, unions, records and anything else take a JSON literal.
@@ -225,7 +226,8 @@ export function exitCodeFor(error: unknown): number {
     return EXIT.config;
   if (status === 401 || status === 403 || /auth|credential|token/.test(text)) return EXIT.auth;
   if (status === 404 || /not found/.test(text)) return EXIT.notFound;
-  if (/will not run without|read-only|is unavailable/.test(text)) return EXIT.usage;
+  // A write the server refused (confirm missing, read-only, destructive tools off) is a usage error, 2.
+  if (/will not run without|read-only|is unavailable|\brefused\b|is off on this server/.test(text)) return EXIT.usage;
   if (typeof status === "number" && status >= 500) return EXIT.api;
   return EXIT.api;
 }

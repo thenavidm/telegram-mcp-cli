@@ -13,11 +13,16 @@ import { WriteGuard } from "./safety.js";
 import { makeContext, register } from "./tools/kit.js";
 import { activeProfile, toolsFor } from "./tools/index.js";
 
-export const VERSION = "0.4.2";
+export const VERSION = "0.4.3";
 
-export function buildServer(): McpServer {
+/**
+ * Over HTTP every session is handed the same `api`, so the process holds one
+ * MTProto connection. A connection per session puts the same auth key on the
+ * wire twice, and Telegram answers AUTH_KEY_DUPLICATED and cancels the session.
+ */
+export function buildServer(shared?: TelegramApi): McpServer {
   const config = loadConfig();
-  const api = new TelegramApi(config);
+  const api = shared ?? new TelegramApi(config);
   const guard = new WriteGuard(config, "mcp");
   const ctx = makeContext(api, config, guard);
 

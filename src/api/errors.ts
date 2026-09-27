@@ -72,6 +72,14 @@ export function translate(error: unknown): TelegramError {
     });
   }
 
+  // Telegram's answer to one session string used from two places at once, a
+  // laptop and a server most often. It cancels the session for both of them.
+  if (/AUTH_KEY_DUPLICATED/.test(message)) {
+    return new TelegramError("AUTH", "Telegram cancelled this session because it was used in two places at once.", {
+      hint: "Run: telegram-cli login. Give every machine its own session string; never copy one across.",
+    });
+  }
+
   if (/AUTH_KEY_UNREGISTERED|SESSION_REVOKED|SESSION_EXPIRED|USER_DEACTIVATED/.test(message)) {
     return new TelegramError("AUTH", "The session is no longer valid.", {
       hint: "Run: telegram-cli login",

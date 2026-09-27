@@ -49,19 +49,32 @@ function invokedAsCli(): boolean {
   return name.startsWith("telegram-cli") || process.argv.includes("--cli");
 }
 
+/**
+ * End a one-shot command once its output has flushed.
+ *
+ * GramJS keeps a socket and its reconnect timers alive after a call, so waiting
+ * for the event loop to empty never ends: the command prints its answer and then
+ * hangs. Exiting straight away can cut off piped output on macOS, where writes
+ * to a pipe are asynchronous, so the exit waits for both streams to drain.
+ */
+function finish(code: number): void {
+  process.exitCode = code;
+  process.stderr.write("", () => process.stdout.write("", () => process.exit(code)));
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2).filter((a) => a !== "--cli");
   const command = argv[0];
 
   if (invokedAsCli() && argv.length === 0) {
-    process.exitCode = await runCli(["tools"]);
+    finish(await runCli(["tools"]));
     return;
   }
 
   // Checked before --help so `<tool> --help` reaches the tool. A bare --help
   // starts with a dash and falls through to the block below.
   if (isCliCommand(argv)) {
-    process.exitCode = await runCli(argv);
+    finish(await runCli(argv));
     return;
   }
 
@@ -95,13 +108,13 @@ async function main(): Promise<void> {
     // Imported here rather than at the top: login pulls in the interactive
     // prompt path, and the server must never pay to load it.
     const { runLogin } = await import("./auth/login.js");
-    process.exitCode = await runLogin(argv.slice(1));
+    finish(await runLogin(argv.slice(1)));
     return;
   }
 
   if (command === "doctor") {
     const { runDoctor } = await import("./doctor.js");
-    process.exitCode = await runDoctor();
+    finish(await runDoctor());
     return;
   }
 
@@ -114,7 +127,12 @@ async function main(): Promise<void> {
   if (argv.includes("--http")) {
     const { httpOptionsFromEnv, startHttpServer } = await import("./transport/http.js");
     const { buildServer } = await import("./server.js");
-    await startHttpServer(buildServer, httpOptionsFromEnv(argv));
+    const { TelegramApi } = await import("./api/client.js");
+    const { loadConfig } = await import("./config.js");
+    // Built on the first session rather than here, so an unconfigured server
+    // still starts and reports the problem per request, as it did before.
+    let api: InstanceType<typeof TelegramApi> | undefined;
+    await startHttpServer(() => buildServer((api ??= new TelegramApi(loadConfig()))), httpOptionsFromEnv(argv));
     return;
   }
 

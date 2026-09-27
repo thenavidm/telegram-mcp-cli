@@ -8,7 +8,7 @@
 [![X](https://img.shields.io/badge/X-@thenavidm-black?logo=x)](https://x.com/thenavidm)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-thenavidm-0A66C2?logo=linkedin&logoColor=white)](https://linkedin.com/in/thenavidm)
 
-Telegram MCP server and CLI for Claude Code and AI agents. 74 tools for chats, history, search, sending, media, contacts, groups, admin, topics, reactions, polls, folders and privacy, on your real account.
+Telegram MCP server and CLI for Claude Code, Codex and AI agents. 74 tools for chats, history, search, sending, media, contacts, groups, admin, topics, reactions, polls, folders and privacy, on your real account.
 
 One install gives you both surfaces, the same tools under the same names,
 covering what the app does rather than what a bot is allowed to see.
@@ -68,7 +68,7 @@ Every other client is in [section 4](#4-connect-your-client-).
 
 | Where you are | What you can reach |
 |---|---|
-| An agent that can run shell commands, like Claude Code or Cursor | Both. The CLI is the cheaper one: 175 tokens a turn against 2,218 |
+| An agent that can run shell commands, like Claude Code or Cursor | Both. The CLI is the cheaper one: nothing until it runs |
 | claude.ai, the Claude Desktop chat tab, or a phone | The server only. There is no shell to run a command in |
 | A terminal, a script, cron or CI | The CLI only. There is no MCP client in a shell |
 
@@ -77,8 +77,10 @@ can do, the other can.
 
 ## Features
 
-Every tool is both a command and an MCP tool, with the same name. The command
-is the tool name with dashes.
+74 tools. Every one is both a shell command and an MCP tool, under the same
+name; the command is the tool name with dashes.
+
+These 13 are what the server loads by default, because they cover daily use:
 
 | Capability | CLI command | MCP tool |
 |---|---|---|
@@ -98,7 +100,14 @@ is the tool name with dashes.
 | Check your setup | `telegram-cli doctor` | not a tool |
 | Sign in once | `telegram-mcp login` | not a tool |
 
-All 13 with their arguments are in [section 7](#7-tools).
+The other 61 cover contacts and blocking, groups and admin, reactions, pins,
+polls and scheduling, archiving, muting and drafts, chat folders, stickers,
+albums and voice notes, forum topics, inline buttons, your own profile and your
+privacy settings. They are always there in the CLI. `TELEGRAM_TOOLS=full` loads
+them into the server as well, and [section 6](#6-which-surface-and-what-each-costs)
+says what that costs.
+
+All 74 are in [section 7](#7-tools).
 
 ## Contents
 
@@ -109,8 +118,8 @@ All 13 with their arguments are in [section 7](#7-tools).
 | 3 | [Set up your account](#3-set-up-your-account-) | api_id, api_hash, session string |
 | 4 | [Connect your client](#4-connect-your-client-) | Every client, copy and paste |
 | 5 | [Output and exit codes](#5-output-and-exit-codes) | What scripts branch on |
-| 6 | [Which surface, and what each costs](#6-which-surface-and-what-each-costs) | 2,218 tokens a turn, or 175 |
-| 7 | [Tools](#7-tools) | All 13, with arguments |
+| 6 | [Which surface, and what each costs](#6-which-surface-and-what-each-costs) | Measured in Claude Code, and how to spend less |
+| 7 | [Tools](#7-tools) | All 74, grouped, with the default 13 in full |
 | 8 | [Writing safely](#8-writing-safely) | Why deleting asks twice |
 | 9 | [Reading messages](#9-reading-messages) | The output format, and why |
 | 10 | [How it works](#10-how-it-works) | Architecture |
@@ -240,6 +249,12 @@ claude mcp add telegram \
 
 ### Claude Desktop
 
+The short way: download the [`.mcpb` extension](https://github.com/thenavidm/telegram-mcp-cli/releases/latest)
+from the latest release and double-click it. It carries its own dependencies,
+so there is no config file to edit and nothing to install first. It asks for your API ID, API hash and session string in a form.
+
+The long way, if you would rather edit the config yourself:
+
 Settings → Developer → Edit Config, then add:
 
 ```json
@@ -364,153 +379,78 @@ A script branches on the number.
 
 ## 6. Which surface, and what each costs
 
-Both surfaces carry the same tools. They differ in when you pay for them.
+Both surfaces are the same program with the same 13 tools. The
+difference is when the model pays for them. Measured in Claude Code:
 
 | | MCP server | CLI |
 |---|---|---|
-| Loaded every turn | **2,218 tokens** | 175 tokens |
-| Loaded when Telegram comes up | nothing more | 1,271 more, once |
-| Listing the commands | included | 155, once |
-| Reading one command's arguments | included | 209, once |
-| Works on claude.ai and mobile | yes | no, there is no shell there |
-| Works in a script, cron or CI | no | yes |
-| You invoke it by | asking in plain language | typing a command |
+| Every message, with every tool loaded | 2,800 tokens | nothing |
+| Every message, Claude Code's default | 130 tokens | nothing |
+| When Telegram comes up | nothing more, or the tools it picks | 2,600 tokens for `SKILL.md`, once |
+| 20 messages with Telegram in 1, every tool loaded | 56,000 tokens | 2,600 tokens |
 
-An MCP server sends its whole tool list to the model on **every turn**, whether
-you mention Telegram or not. That is the price of being connected at all,
-before you ask anything.
+Claude Code's [tool search](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search)
+is on by default: it sends only the tool names and the server instructions,
+and loads a tool's full definition when the model reaches for it. An app that
+loads every tool up front pays the first line on every message, whether
+Telegram comes up or not. With the skill added, Claude Code also lists its
+one-line description, about 130 tokens.
 
-The CLI is not free either, and it is worth being honest about that. Its shell
-skill carries a description that loads every turn so the agent knows the command
-exists. That is 175 tokens rather than 2,218, and the rest is only read when
-Telegram actually comes up.
+To spend less, turn the server off when you are not using it, which in Claude
+Code is the `/mcp` panel. `TELEGRAM_READ_ONLY=1` takes the 6 write tools off the list, leaving 7. These numbers are the default profile's 13 tools; `TELEGRAM_TOOLS=full` lists all 74 and costs more.
+Or install the CLI and add the server on the days it earns its place.
 
-Over 20 turns where Telegram comes up once, that is **44,360 tokens against
-5,135**. When the whole conversation is Telegram, the gap closes and the server
-is the better experience, because you ask in plain language instead of
-remembering flags.
-
-Every number here came from a real `tools/list` handshake against this build,
-counted with a tokeniser rather than estimated from character length.
-
-### Where the 2,218 goes
-
-Worth knowing, because most of it is not something anyone can write away:
-
-| Part of the payload | Share |
-|---|---|
-| JSON Schema structure: types, required lists, nesting | **70%** |
-| Argument descriptions | 16% |
-| Tool descriptions | 14% |
-
-Roughly 1,550 tokens are the protocol serialising every tool as JSON Schema.
-Any MCP server with this many tools pays the same. The 30% that is prose is
-what makes the tools usable without guessing.
-
-For contrast, a Telegram MCP server shipping 80 tools pays that structural cost
-eight times over, on every turn, before anyone asks it anything.
-
-### How this compares
-
-There are a dozen or so Telegram MCP servers. They cluster into three shapes,
-and the trade each one makes is worth understanding before picking any of them,
-including this one.
-
-| | This server | Minimal servers | Comprehensive servers | Official channel plugin |
-|---|---|---|---|---|
-| Tools | 13 default, 74 available | 2 to 8 | up to 127 | n/a, a chat bridge |
-| Tokens every turn | **2,218**, or 11,643 at full | ~400 to 1,500 | up to **21,096** | small |
-| Reads your real chats | yes | yes | yes | **no, bot only** |
-| CLI surface | **yes, all 74** | no | no | no |
-| Choose what loads | **yes, profiles** | fixed | fixed | n/a |
-| Runs unconfigured | **yes, self-diagnoses** | varies | often crashes at import | n/a |
-| Transports | stdio, HTTP | stdio, some HTTP | stdio, HTTP, SSE | stdio |
-
-Every number in the first and fourth columns was measured against a running
-server with a tokeniser, not read off a README.
-
-**Minimal servers** collapse everything into a handful of very general tools,
-sometimes with a raw MTProto escape hatch. That is genuinely cheap and it is a
-reasonable design. The cost is discoverability: a model has to know the API to
-drive one general tool correctly, and the errors when it guesses wrong are
-worse than a missing tool.
-
-**Comprehensive servers** go the other way, one tool per operation. Everything
-is discoverable, and you pay for all of it on every turn whether Telegram comes
-up or not. At the top of the range that is 21,096 tokens standing.
-
-**This one refuses the trade.** Tools are named and discoverable like the
-comprehensive servers, but you choose how many load. The default is 13. The
-long tail lives in the CLI, which costs 175 tokens standing because a shell
-command is not sent to the model until it is typed.
-
-**The official channel plugin is a different thing entirely.** It is a
-BotFather bot, so it can only ever see messages sent to that bot. Your own
-chats, groups and history are invisible to it. It is a good way to talk *to*
-Claude from your phone, and no way at all to let Claude read your Telegram.
-
-### Where the capability goes
-
-Coverage does not require one tool per operation. Capabilities ride on
-arguments instead:
-
-| One tool here | Replaces |
-|---|---|
-| `get_participants --filter admins\|banned\|kicked\|bots` | 4 separate tools |
-| `set_admin --promote false` | promote and demote |
-| `set_banned --ban false` | ban and unban |
-| `pin --pin false` | pin and unpin |
-| `react` with no emoji | react and remove reaction |
-| `archive` / `mute`, both reversible | 4 tools |
-| `update_folder --add --remove` | add to folder, remove from folder |
-| `save_draft ""` | save and clear |
-
-That is how the same ground is covered by 74 definitions rather than 127.
-
-### Spending less
-
-**Pick a smaller profile.** `TELEGRAM_TOOLS` decides what is advertised:
-
-| Profile | Tools | Every turn |
-|---|---|---|
-| `core` (default) | 13 | 2,218 tokens |
-| `read` | 31 | 4,673 tokens |
-| `full` | 74 | 11,643 tokens |
-
-**Turn the server off when you are not using Telegram.** In Claude Code that is
-`@telegram` to toggle, and every client has an equivalent.
-
-**Or install the CLI and skip the server.** Every tool stays reachable and the
-standing cost falls from 2,218 to 175, which is the single biggest lever here.
-
-**Shape the responses.** Once you are actually using it, `--fields id,text` and
-a small `--limit` matter more than the tool list. See
-[section 9](#9-reading-messages).
+Measured on 2026-09-27 with Claude Code 2.1.257 on Claude Opus 5: one
+short prompt with and without the server connected, once with
+`ENABLE_TOOL_SEARCH=false` and once with the default, the difference read
+from the API's own usage figures. `SKILL.md` was measured the same way. Other
+apps and models count tokens a little differently.
 
 ## 7. Tools
 
-Every tool, with its arguments. Each is also a shell command under the same name
-with dashes, so `list_chats` runs as `telegram-cli list-chats`.
+74 tools. Each is also a shell command under the same name with dashes, so
+`list_chats` runs as `telegram-cli list-chats`.
+
+The 13 in [the default set](#the-default-13) are documented here with their
+arguments, because they are what the server loads unless you tell it otherwise.
+The [other 61](#the-other-61) are listed by name only. Arguments move, and a
+hand-typed list of 74 signatures goes stale the day a tool is added, so ask the
+binary instead:
+
+```bash
+telegram-cli                    # all 74, one line each, writes marked
+telegram-cli <command> --help   # its arguments, derived from the schema
+telegram-cli schema <command>   # the JSON Schema an MCP client receives
+```
 
 Two things hold across all of them. Every list tool takes `fields` for
-projection and a `limit` that is clamped rather than trusted. Every tool that
-changes something is marked, and the irreversible one needs confirmation.
+projection and a `limit` that is clamped rather than trusted. Writes are marked
+`*`, and the irreversible ones are marked `!` and refuse to run without
+confirmation. Those are the same marks the bare command prints.
 
-### Account
+`peer` is the same everywhere: a `@username`, a numeric id, or `me` for Saved
+Messages.
+
+### The default 13
+
+What `TELEGRAM_TOOLS=core` advertises, which is the default: about 2,800
+tokens a message in an app that loads every tool, measured in Claude Code.
+
+#### Account
 
 | Tool | Arguments | What it does |
 |---|---|---|
 | `whoami` | none | Which account this session is signed in as |
 | `resolve` | `peer` | A @username, phone or id to something you can act on |
 
-### Chats
+#### Chats
 
 | Tool | Arguments | What it does |
 |---|---|---|
 | `list_chats` | `limit`, `unread_only`, `kind`, `fields` | Recent conversations, newest first |
 | `get_chat` | `peer` | One chat: name, kind, username, member count |
 
-### Reading
+#### Reading
 
 | Tool | Arguments | What it does |
 |---|---|---|
@@ -518,19 +458,124 @@ changes something is marked, and the irreversible one needs confirmation.
 | `search` | `query`, `peer`, `limit`, `fields` | Search text in one chat or everywhere |
 | `download_media` | `peer`, `message_id`, `dir` | Save a photo, video, document or voice note |
 
-### Writing
+#### Writing
 
 | Tool | Arguments | What it does |
 |---|---|---|
-| `send` | `peer`, `text`, `reply_to`, `silent` | Send a message. Posts as you |
-| `send_file` | `peer`, `path`, `caption` | Send a local file |
-| `edit` | `peer`, `message_id`, `text` | Change a message you sent |
-| `forward` | `from`, `to`, `message_ids` | Forward between chats |
-| `mark_read` | `peer` | Clear a chat's unread count |
-| `delete` ⚠️ | `peer`, `message_ids`, `revoke`, `confirm` | Delete messages. Cannot be undone |
+| `send` * | `peer`, `text`, `reply_to`, `silent` | Send a message. Posts as you |
+| `send_file` * | `peer`, `path`, `caption` | Send a local file |
+| `edit` * | `peer`, `message_id`, `text` | Change a message you sent |
+| `forward` * | `from`, `to`, `message_ids` | Forward between chats |
+| `mark_read` * | `peer` | Clear a chat's unread count |
+| `delete` ! | `peer`, `message_ids`, `revoke`, `confirm` | Delete messages. Cannot be undone |
 
-`peer` is the same everywhere: a `@username`, a numeric id, or `me` for Saved
-Messages.
+### The other 61
+
+Always reachable from the CLI, where an unused command costs nothing.
+`TELEGRAM_TOOLS=full` loads them into the server too, at about 14,400 tokens a
+message in an app that loads every tool.
+See [section 6](#6-which-surface-and-what-each-costs) before you do.
+
+#### Contacts and people
+
+| Tool | What it does |
+|---|---|
+| `list_contacts` | List contacts |
+| `search_contacts` | Search contacts and users |
+| `get_user` | Get a user's profile |
+| `list_blocked` | List blocked users |
+| `add_contact` * | Add a contact |
+| `block` * | Block someone |
+| `unblock` * | Unblock someone |
+| `delete_contact` ! | Remove a contact |
+
+#### Groups, channels and admin
+
+| Tool | What it does |
+|---|---|
+| `get_participants` | List members of a chat |
+| `get_full_chat` | Full details of a chat |
+| `create_group` * | Create a group or channel |
+| `join_chat` * | Join a chat |
+| `invite_to_chat` * | Add people to a chat |
+| `invite_link` * | Get or create an invite link |
+| `set_admin` * | Promote or demote an admin |
+| `edit_chat` * | Change a chat's title or description |
+| `leave_chat` ! | Leave a chat |
+| `set_banned` ! | Ban or unban someone |
+
+#### Reactions, pins, polls and scheduling
+
+| Tool | What it does |
+|---|---|
+| `get_pinned` | List pinned messages |
+| `get_reactions` | Who reacted to a message |
+| `get_scheduled` | List scheduled messages |
+| `message_link` | Get a link to a message |
+| `pin` * | Pin or unpin a message |
+| `react` * | React to a message |
+| `create_poll` * | Send a poll |
+| `delete_scheduled` ! | Cancel scheduled messages |
+
+#### Organizing your chat list
+
+| Tool | What it does |
+|---|---|
+| `common_chats` | Chats you share with someone |
+| `search_public` | Search public chats |
+| `list_drafts` | List unsent drafts |
+| `archive` * | Archive or unarchive a chat |
+| `mute` * | Mute or unmute a chat |
+| `save_draft` * | Save or clear a draft |
+| `delete_history` ! | Delete a chat's history |
+
+#### Chat folders
+
+| Tool | What it does |
+|---|---|
+| `list_folders` | List chat folders |
+| `get_folder` | One folder's contents |
+| `create_folder` * | Create a chat folder |
+| `update_folder` * | Rename a folder or change what is in it |
+| `reorder_folders` * | Reorder chat folders |
+| `delete_folder` ! | Delete a chat folder |
+
+#### More media
+
+| Tool | What it does |
+|---|---|
+| `list_sticker_sets` | List your sticker sets |
+| `search_gifs` | Search GIFs |
+| `media_info` | Describe a message's media |
+| `transcribe_voice` | Transcribe a voice message |
+| `send_sticker` * | Send a sticker or GIF |
+| `send_album` * | Send several photos as one album |
+| `send_contact` * | Share a contact card |
+| `send_voice` * | Send a voice note |
+
+#### Forum topics and inline buttons
+
+| Tool | What it does |
+|---|---|
+| `list_topics` | List forum topics |
+| `list_buttons` | List a message's inline buttons |
+| `create_topic` * | Create a forum topic |
+| `edit_topic` * | Rename, close or reopen a topic |
+| `enable_topics` * | Turn forum topics on or off |
+| `press_button` * | Press an inline button |
+
+#### Your profile and privacy
+
+| Tool | What it does |
+|---|---|
+| `list_profile_photos` | List profile photos |
+| `get_privacy` | Read your privacy settings |
+| `export_contacts` | Export every contact |
+| `update_profile` * | Update your profile |
+| `set_profile_photo` * | Set your profile photo |
+| `set_privacy` * | Change a privacy setting |
+| `import_contacts` * | Import contacts in bulk |
+| `delete_profile_photo` ! | Delete your current profile photo |
 
 ## 8. Writing safely
 
@@ -802,6 +847,20 @@ protocol. You never call the tools yourself, you just ask in plain language.
 </details>
 
 <details>
+<summary><b>What is the CLI?</b></summary>
+
+`telegram-cli` is the same program as the MCP server, run as commands. AI agents that run commands, like Claude Code, Codex and OpenCode, use it on their own, and you can type the same commands in a terminal, a script or a cron job. Every tool is a command with dashes, so `list_chats` runs as `telegram-cli list-chats`.
+
+</details>
+
+<details>
+<summary><b>Should I use the MCP server or the CLI?</b></summary>
+
+Use the MCP server in an app with no terminal, like Claude Desktop's chat. Use the CLI anywhere commands run: an agent like Claude Code, Codex or OpenCode, a script or a cron job. The MCP server's tools take up context on every message, and the CLI costs nothing until it runs.
+
+</details>
+
+<details>
 <summary><b>How is this different from a Telegram bot?</b></summary>
 
 A bot is a separate account, and it only receives messages that people send to
@@ -871,9 +930,9 @@ That is what the guard is for. `delete` refuses without explicit confirmation,
 <details>
 <summary><b>Why only 13 tools when other Telegram servers have 80?</b></summary>
 
-Because every tool definition is sent to the model on every turn, whether you
-use it or not. 80 tools is 15,000 to 25,000 tokens of standing cost, and it
-makes tool selection worse: a model picks correctly from 13 far more reliably
+Because an app that loads every tool up front sends every definition with every
+message, whether you use it or not. All 74 here measure about 14,400 tokens in
+Claude Code, against 2,800 for the 13, and more tools make tool selection worse: a model picks correctly from 13 far more reliably
 than from 80.
 
 The 13 cover what actually gets used. The long tail belongs in the CLI, where it
@@ -896,14 +955,6 @@ which works but is clumsier than it should be.
 Reading and sending work the same either way. Premium-only features like longer
 messages and larger uploads follow whatever your account already has, because
 this is your account rather than a bot with its own limits.
-
-</details>
-
-<details>
-<summary><b>Why does it need Node 20?</b></summary>
-
-The MCP TypeScript SDK and GramJS both target modern Node. 20 is the oldest
-line still receiving security updates at the time of writing.
 
 </details>
 

@@ -13,6 +13,7 @@
 import { createInterface } from "node:readline/promises";
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions/index.js";
+import { Logger, LogLevel } from "telegram/extensions/Logger.js";
 import { loadAppConfig } from "../config.js";
 
 async function ask(question: string, mask = false): Promise<string> {
@@ -36,8 +37,11 @@ export async function runLogin(_argv: string[]): Promise<number> {
   // session string and `telegram-mcp login > session.txt` does the right thing.
   process.stderr.write("Signing in to Telegram.\n\n");
 
+  // Silent from construction: the constructor prints a version banner to
+  // stdout, which would land in front of the session string in a redirect.
   const client = new TelegramClient(new StringSession(""), apiId, apiHash, {
     connectionRetries: 3,
+    baseLogger: new Logger(LogLevel.NONE),
   });
   client.setLogLevel("none" as never);
 

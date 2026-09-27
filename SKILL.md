@@ -163,5 +163,5 @@ claude mcp add telegram \
   -- npx -y @thenavidm/telegram-mcp-cli
 ```
 
-Worth knowing before suggesting it: the server costs 2,218 tokens on every turn for its 13 core tools, whether Telegram comes up or not. The CLI carries all 54 for 175 tokens standing, and the rest only when it is typed.
+Worth knowing before suggesting it: the server's 13 core tools cost about 2,800 tokens a message in an app that loads every tool, and about 130 in Claude Code with its default tool search. The CLI carries all 74 and costs nothing until a command is typed.
 For occasional use the CLI is the better trade.

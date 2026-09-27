@@ -8,6 +8,7 @@
 
 import { TelegramClient, Api } from "telegram";
 import { StringSession } from "telegram/sessions/index.js";
+import { Logger, LogLevel } from "telegram/extensions/Logger.js";
 import type { Config } from "../config.js";
 import { translate } from "./errors.js";
 
@@ -24,7 +25,8 @@ export class TelegramApi {
    *
    * GramJS logs protocol chatter to stdout by default, which corrupts the MCP
    * stdio transport: the client is reading JSON-RPC on that exact stream. The
-   * log level goes to none before connecting for that reason, not for tidiness.
+   * logger is silent from construction, because the constructor itself prints
+   * a version banner, and setLogLevel afterwards is too late for that line.
    */
   async connect(): Promise<TelegramClient> {
     if (this.client) return this.client;
@@ -37,6 +39,7 @@ export class TelegramApi {
         connectionRetries: 3,
         timeout: this.config.timeout,
         useWSS: false,
+        baseLogger: new Logger(LogLevel.NONE),
       },
     );
 

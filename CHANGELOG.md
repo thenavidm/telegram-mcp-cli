@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.4.3
+
+Fixes the bug that cancelled the session on the hosted connector.
+
+- **HTTP sessions share one Telegram connection.** Each MCP session built its
+  own client, so two clients at once put the same auth key on the wire twice.
+  Telegram answers that with `AUTH_KEY_DUPLICATED` and cancels the session on
+  every machine holding it.
+- **`AUTH_KEY_DUPLICATED` says what happened.** It now reads as an auth error
+  with the fix: log in again, one session string per machine.
+- **Commands exit when they finish.** GramJS kept its socket open after a call,
+  so a command printed its answer and then hung. `doctor` also has a deadline,
+  because a broken setup is exactly when GramJS retries forever.
+- **Nothing but output on stdout.** GramJS printed a version banner from its
+  constructor, before the log level could be lowered. It landed in front of
+  `--json` output, in the MCP stream on the first call, and in front of the
+  session string in `telegram-mcp login > session.txt`.
+- **A list of numbers works on the command line.** `--message-ids 1` reached
+  the tool as the text "1" and failed validation, so `delete`, `forward`, the
+  scheduled-message cancel and folder ordering could only run over MCP.
+- **A refused write exits 2.** With destructive tools off, `delete` exited 5
+  as if Telegram had failed.
+- **The README shows the context cost measured in Claude Code**, and Claude
+  Desktop's short way in: the `.mcpb` extension on each release.
+
 ## 0.4.2
 
 Fixes the bug that made the hosted connector unusable.

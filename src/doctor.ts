@@ -45,7 +45,15 @@ export async function doctor(): Promise<{ ok: boolean; checks: Check[] }> {
     try {
       const config = loadConfig();
       const api = new TelegramApi(config);
-      const me = await api.run(async (client) => client.getMe());
+      // doctor is what someone runs when things are broken, and broken is when
+      // GramJS retries forever. A deadline turns that into a line of output.
+      const seconds = config.timeout + 5;
+      const me = await Promise.race([
+        api.run(async (client) => client.getMe()),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`no answer from Telegram in ${seconds}s`)), seconds * 1000).unref(),
+        ),
+      ]);
       const name = (me as unknown as { username?: string; firstName?: string });
       checks.push({
         name: "connection",

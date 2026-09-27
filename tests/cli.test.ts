@@ -10,7 +10,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { flagsFor, parseArgs, isCliCommand } from "../src/cli.js";
+import { EXIT, exitCodeFor, flagsFor, parseArgs, isCliCommand } from "../src/cli.js";
 import { ALL_TOOLS } from "../src/tools/index.js";
 
 describe("flagsFor", () => {
@@ -198,5 +198,20 @@ describe("documentation stays in step with the code", () => {
       .map((m) => m[1] as string)
       .filter((a) => !slugs.has(a));
     expect(dead).toEqual([]);
+  });
+});
+
+describe("a list of numbers", () => {
+  it("parses each value as a number, so validation passes", () => {
+    const flags = flagsFor({ ids: z.array(z.number().int()).describe("Ids.") });
+    expect(flags[0]).toMatchObject({ kind: "number", repeatable: true });
+    expect(parseArgs(["--ids", "1", "--ids", "22"], flags)).toEqual({ ids: [1, 22] });
+    expect(() => parseArgs(["--ids", "x"], flags)).toThrow(/number/);
+  });
+});
+
+describe("a refused write", () => {
+  it("exits 2, like any write the server will not run", () => {
+    expect(exitCodeFor({ code: "REFUSED", message: "delete is irreversible and TELEGRAM_ALLOW_DESTRUCTIVE is off on this server." })).toBe(EXIT.usage);
   });
 });
