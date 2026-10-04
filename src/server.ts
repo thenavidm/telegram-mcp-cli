@@ -13,7 +13,7 @@ import { WriteGuard } from "./safety.js";
 import { makeContext, register } from "./tools/kit.js";
 import { activeProfile, toolsFor } from "./tools/index.js";
 
-export const VERSION = "0.4.3";
+export const VERSION = "0.4.4";
 
 /**
  * Over HTTP every session is handed the same `api`, so the process holds one

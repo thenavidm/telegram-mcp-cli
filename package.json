@@ -1,12 +1,13 @@
 {
   "name": "@thenavidm/telegram-mcp-cli",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Telegram MCP server and CLI for Claude Code, Codex and AI agents. 74 tools for chats, history, search, sending, media, contacts, groups, admin, topics, reactions, polls, folders and privacy, on your real Telegram account over MTProto.",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
     "telegram-mcp": "dist/index.js",
-    "telegram-cli": "dist/index.js"
+    "telegram-cli": "dist/index.js",
+    "telegram-mcp-cli": "dist/npx.js"
   },
   "engines": {
     "node": ">=20"
