@@ -1,6 +1,6 @@
 /** Who this session is, and whether it still works. */
 
-import { z } from "zod";
+import { z } from "@thenavidm/slipway";
 import { defineTool } from "./kit.js";
 import { displayName } from "../format/render.js";
 

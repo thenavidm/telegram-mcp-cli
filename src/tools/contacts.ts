@@ -1,6 +1,6 @@
 /** Contacts: who you know, and who you have blocked. */
 
-import { z } from "zod";
+import { z } from "@thenavidm/slipway";
 import { clamp, confirmArg, defineTool, selectArg } from "./kit.js";
 import { displayName, page, sanitize, select } from "../format/render.js";
 

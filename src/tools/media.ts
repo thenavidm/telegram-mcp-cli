@@ -1,7 +1,7 @@
 /** Media: getting files out of Telegram and putting them back in. */
 
 import { resolve as resolvePath } from "node:path";
-import { z } from "zod";
+import { z } from "@thenavidm/slipway";
 import { defineTool } from "./kit.js";
 import { TelegramError } from "../api/errors.js";
 

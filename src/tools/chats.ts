@@ -1,6 +1,6 @@
 /** Chats: what conversations exist, and what one of them is. */
 
-import { z } from "zod";
+import { z } from "@thenavidm/slipway";
 import { clamp, defineTool, selectArg } from "./kit.js";
 import { chatRow, displayName, page, peerKind, select } from "../format/render.js";
 

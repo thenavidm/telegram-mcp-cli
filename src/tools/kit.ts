@@ -1,29 +1,24 @@
 /**
- * Shared plumbing every tool uses.
+ * Shared plumbing every tool uses, now on Slipway.
  *
- * One array of specs feeds three consumers: the MCP server, the CLI, and the
- * channel. Describing a tool once is what keeps them from drifting, so this
- * wraps registration, guarding and error shaping in a single place and leaves
- * a tool module to describe only what it actually does.
+ * Tool modules keep describing themselves with a Zod shape, a risk and a
+ * handler. This adapter turns each into a Slipway tool, so the MCP server, the
+ * CLI, the write guard, annotations and errors all come from the framework
+ * instead of a copy kept in this repo.
  */
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z, type ZodRawShape } from "zod";
+import { ApiError, AuthError, NotConfiguredError, NotFoundError, RateLimitError, RefusedError, SlipwayError, toolkit, z, type Risk, type Tool } from "@thenavidm/slipway";
 import type { TelegramApi } from "../api/client.js";
-import { TelegramError } from "../api/errors.js";
 import type { Config } from "../config.js";
-import { annotationsFor, type Risk, type WriteGuard } from "../safety.js";
+import { TelegramError } from "../api/errors.js";
+import { ConfigError } from "../config.js";
 
 export type ToolContext = {
   api: TelegramApi;
   config: Config;
-  guard: WriteGuard;
 };
 
-export type ToolResult = {
-  content: { type: "text"; text: string }[];
-  isError?: boolean;
-};
+const kit = toolkit<ToolContext>();
 
 /**
  * Which profile a tool belongs to.
@@ -33,37 +28,6 @@ export type ToolResult = {
  * is `full` and reachable from the CLI at no context cost at all.
  */
 export type Profile = "core" | "full";
-
-export function ok(data: unknown): ToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-}
-
-/**
- * Errors come back as a readable result, not a thrown protocol failure.
- *
- * A thrown MCP error reaches the model as an opaque transport problem. A result
- * carrying the code, the message and often a hint is the difference between the
- * model retrying correctly and giving up. Flood waits especially: the model can
- * only wait the right number of seconds if we tell it the number.
- */
-export function fail(error: unknown): ToolResult {
-  const payload =
-    error instanceof TelegramError
-      ? error.toJSON()
-      : { error: (error as Error)?.message ?? String(error) };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
-  };
-}
-
-/** The confirmation argument every irreversible tool carries. */
-export const confirmArg = {
-  confirm: z
-    .boolean()
-    .optional()
-    .describe("Must be true for this to run. This cannot be undone, so it is refused without it."),
-};
 
 /** Field projection, on every tool that returns a list. */
 /** The optional argument that picks an account, on every account-scoped tool. */
@@ -83,7 +47,7 @@ export const selectArg = {
     .describe("Comma separated fields to keep, e.g. 'id,text'. Dotted paths descend. Cuts response size."),
 };
 
-export type ToolSpec<S extends ZodRawShape> = {
+export type ToolSpec<S extends Shape> = {
   name: string;
   /** One line, imperative. Shown in tool pickers. */
   title: string;
@@ -98,66 +62,92 @@ export type ToolSpec<S extends ZodRawShape> = {
   summary?: (args: z.infer<z.ZodObject<S>>) => string;
 };
 
-export function defineTool<S extends ZodRawShape>(spec: ToolSpec<S>): ToolSpec<S> {
-  return spec;
-}
-
 /**
  * A tool of any shape, for the one place tools are collected into a list.
  *
  * `ToolSpec` is generic over its schema, so a list of tools with different
- * schemas has no single type: handlers accept different argument shapes and
- * function parameters are contravariant. The safety that matters lives inside
- * each `defineTool` call, where schema and handler are checked against each
- * other. Only the collection seam is loosened.
- *
- * The handler parameter is erased to `never` rather than widened to `any`:
- * `never` is assignable to every argument type, so any concrete handler fits,
- * whereas a widened object type fails contravariance and rejects all of them.
+ * schemas has no single type. The handler parameter is erased to `never`,
+ * which every concrete handler is assignable to.
  */
-export type AnyToolSpec = Omit<ToolSpec<ZodRawShape>, "handler" | "summary"> & {
+export type AnyToolSpec = Omit<ToolSpec<Shape>, "handler" | "summary"> & {
   handler: (args: never, ctx: ToolContext) => Promise<unknown>;
   summary?: (args: never) => string;
 };
 
-/** Register one tool, with guarding and error handling applied. */
-export function register(server: McpServer, ctx: ToolContext, spec: AnyToolSpec): void {
-  // A read-only server should not advertise writes it will refuse.
-  if (ctx.guard.readOnly && spec.risk !== "read") return;
-
-  server.registerTool(
-    spec.name,
-    {
-      title: spec.title,
-      description: spec.description,
-      inputSchema: spec.schema,
-      annotations: { title: spec.title, ...annotationsFor(spec.risk) },
-    },
-    // The SDK derives its callback type from the schema generic. This wrapper is
-    // generic over the same shape, but TypeScript cannot prove the two equal
-    // through the indirection, so the cast lives at this one boundary rather
-    // than in every tool definition.
-    (async (args: Record<string, unknown>) => {
-      try {
-        if (spec.risk !== "read") {
-          const summary = spec.summary?.(args as never) ?? spec.name;
-          const confirm = (args as { confirm?: boolean }).confirm;
-          ctx.guard.check(spec.name, spec.risk, confirm, summary);
-        }
-        return ok(await spec.handler(args as never, ctx));
-      } catch (error) {
-        return fail(error);
-      }
-    }) as never,
-  );
-}
-
-export function makeContext(api: TelegramApi, config: Config, guard: WriteGuard): ToolContext {
-  return { api, config, guard };
+export function makeContext(api: TelegramApi, config: Config): ToolContext {
+  return { api, config };
 }
 
 /** Clamp a caller-supplied limit into a range Telegram will accept. */
 export function clamp(value: number | undefined, fallback: number, max: number): number {
   if (value === undefined || !Number.isFinite(value)) return fallback;
   return Math.min(Math.max(Math.trunc(value), 1), max);
+}
+
+/**
+ * Kept so tool modules read the same, but never sent: Slipway adds `confirm`
+ * to every irreversible tool itself, with one description everywhere.
+ */
+export const confirmArg = {
+  confirm: z.boolean().optional(),
+};
+
+type Shape = Record<string, z.ZodType>;
+
+/**
+ * A failure as the Slipway error that carries its exit code, which is the
+ * code 0.4 gave it: Telegram's own kind of failure decides, a flood wait
+ * carries its seconds, and a missing credential is setup, 10.
+ */
+export function toSlipway(error: unknown): unknown {
+  if (error instanceof SlipwayError) return error;
+  if (error instanceof ConfigError) return new NotConfiguredError(error.message);
+  if (!(error instanceof TelegramError)) return error;
+  const options = { ...(error.hint ? { hint: error.hint } : {}), details: { telegram_code: error.code } };
+  switch (error.code) {
+    case "NOT_CONFIGURED":
+      return new NotConfiguredError(error.message, options);
+    case "AUTH":
+      return new AuthError(error.message, options);
+    case "NOT_FOUND":
+      return new NotFoundError(error.message, options);
+    case "RATE_LIMIT":
+      return new RateLimitError(error.message, { ...options, ...(error.retryAfter !== undefined ? { retryAfterSeconds: error.retryAfter } : {}) });
+    case "REFUSED":
+      return new RefusedError(error.message, options);
+    default:
+      // FORBIDDEN and the rest: Telegram answered and said no, which 0.4 gave 5.
+      return new ApiError(error.message, options);
+  }
+}
+
+/** Specs keep their 0.4 shape, so tool modules read the same; `slipwayTool` turns one into what Slipway serves. */
+export function defineTool<S extends Shape>(spec: ToolSpec<S>): ToolSpec<S> {
+  return spec;
+}
+
+/**
+ * One spec as a Slipway tool, in the toolset of its module and, for the daily
+ * ones, in `core`, which is what TELEGRAM_TOOLS=core showed.
+ */
+export function slipwayTool(spec: AnyToolSpec, toolset: string): Tool<ToolContext> {
+  const { confirm: _confirm, ...shape } = spec.schema;
+  const handler = spec.handler as unknown as (args: Record<string, unknown>, ctx: ToolContext) => Promise<unknown>;
+  return kit.defineTool({
+    name: spec.name,
+    title: spec.title,
+    description: spec.description,
+    input: z.object(shape),
+    risk: spec.risk,
+    ...(spec.risk === "destructive" ? { consequence: "is irreversible" } : {}),
+    ...(spec.summary ? { summary: spec.summary as (args: Record<string, unknown>) => string } : {}),
+    tags: spec.profile === "core" ? ["core", toolset] : [toolset],
+    handler: async (args, ctx) => {
+      try {
+        return await handler(args, ctx);
+      } catch (error) {
+        throw toSlipway(error);
+      }
+    },
+  });
 }

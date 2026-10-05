@@ -1,7 +1,7 @@
 /** Your own account: profile, photos, privacy, and media you send. */
 
 import { resolve as resolvePath } from "node:path";
-import { z } from "zod";
+import { z } from "@thenavidm/slipway";
 import { clamp, confirmArg, defineTool } from "./kit.js";
 import { page, sanitize } from "../format/render.js";
 

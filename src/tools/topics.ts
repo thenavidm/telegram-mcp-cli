@@ -1,6 +1,6 @@
 /** Forum topics, and the inline buttons bots attach to messages. */
 
-import { z } from "zod";
+import { z } from "@thenavidm/slipway";
 import { clamp, defineTool, selectArg } from "./kit.js";
 import { page, sanitize, select } from "../format/render.js";
 

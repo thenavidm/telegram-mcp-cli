@@ -1,7 +1,7 @@
 /** Stickers, GIFs, albums, and the other ways to send something that is not text. */
 
 import { resolve as resolvePath } from "node:path";
-import { z } from "zod";
+import { z } from "@thenavidm/slipway";
 import { clamp, defineTool, selectArg } from "./kit.js";
 import { page, sanitize, select } from "../format/render.js";
 

@@ -6,9 +6,10 @@ before matching your own instincts.
 
 ## The seam
 
-`src/tools/index.ts` exports `ALL_TOOLS`. `server.ts` and `cli.ts` both read it,
-and `channel.ts` will too. A tool is described once, in one `defineTool` call,
-and becomes an MCP tool and a shell command at the same time.
+`src/tools/index.ts` exports `TOOLS`, built on Slipway from the specs each
+module describes once, in one `defineTool` call, and `src/app.ts` serves them
+as the MCP server and the CLI. Each module is a toolset, and the daily tools
+are also in `core`. The channel is its own small Slipway app in `channel.ts`.
 
 Never add a tool to one surface only. If it needs describing twice, the change
 is in the wrong place.
@@ -26,13 +27,12 @@ build: 13 tools is 2,218 tokens, 7 is 1,241, counted with a tokeniser.
 
 ## Safety
 
-`WriteGuard` in `safety.ts`, matching the family. `read` passes through, `write`
-is recorded, `destructive` needs `confirm` and is off entirely unless
-`TELEGRAM_ALLOW_DESTRUCTIVE=1`.
+Slipway's guard, from each tool's risk. `read` passes through, `write` is
+recorded, `destructive` needs confirming and is off entirely unless
+`TELEGRAM_ALLOW_DESTRUCTIVE=1`, through `defaults.allowDestructive`.
 
 Risk levels are `read` | `write` | `destructive`. Not "irreversible", even
-though that is the word the docs use, because the family's shared `cli.ts` asset
-reads `destructive`.
+though that is the word the docs use, because Slipway reads `destructive`.
 
 ## stdout belongs to the protocol
 

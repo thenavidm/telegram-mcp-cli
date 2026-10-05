@@ -1,6 +1,6 @@
 /** Keeping the chat list under control: archive, mute, folders and drafts. */
 
-import { z } from "zod";
+import { z } from "@thenavidm/slipway";
 import { clamp, confirmArg, defineTool, selectArg } from "./kit.js";
 import { chatRow, displayName, page, sanitize, select } from "../format/render.js";
 

@@ -1,217 +1,185 @@
 /**
- * The CLI adapter.
+ * The server, the channel and the CLI, now built by Slipway from the same tools.
  *
- * What matters here is that the shell surface is derived from the tool specs
- * rather than described a second time, so the tests that count are the ones
- * asserting parity with ALL_TOOLS and the ones covering the argv shapes a
- * person actually types.
+ * Parsing, help and output shapes are Slipway's and tested there. These cover
+ * what this repo promises: every tool is a command, the daily tools are what an
+ * MCP client loads by default and 0.4's TELEGRAM_TOOLS still picks the rest while
+ * the terminal runs every command, irreversible tools stay
+ * off until TELEGRAM_ALLOW_DESTRUCTIVE=1, Telegram's failures keep their exit
+ * codes, the channel declares itself where Claude Code looks and forwards only
+ * allowed chats, and the docs stay in step with the code.
+ *
+ * No credential is in reach: the environment's are removed before anything
+ * loads, every call passes its own empty environment, and the channel's client
+ * is a stand-in. Nothing here can sign in to Telegram.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
-import { EXIT, exitCodeFor, flagsFor, parseArgs, isCliCommand } from "../src/cli.js";
-import { ALL_TOOLS } from "../src/tools/index.js";
 
-describe("flagsFor", () => {
-  it("derives a flag per schema key, kebab-cased", () => {
-    const flags = flagsFor({ reply_to: z.string().optional() });
-    expect(flags[0]).toMatchObject({ key: "reply_to", flag: "--reply-to", kind: "string" });
+for (const name of Object.keys(process.env)) if (/^TELEGRAM_(SESSION|API_ID|API_HASH)/.test(name)) delete process.env[name];
+const allowFile = join(mkdtempSync(join(tmpdir(), "telegram-channel-")), "allow.json");
+process.env.TELEGRAM_CHANNEL_ALLOW = allowFile;
+
+const { checkApp, cli, connect } = await import("@thenavidm/slipway/testing");
+const { app } = await import("../src/app.js");
+const { channelApp, listen } = await import("../src/channel.js");
+const { TOOLS } = await import("../src/tools/index.js");
+const { toSlipway } = await import("../src/tools/kit.js");
+const { TelegramError } = await import("../src/api/errors.js");
+const { ConfigError } = await import("../src/config.js");
+
+const listed = async (env: NodeJS.ProcessEnv): Promise<string[]> => {
+  const mcp = await connect(app, { env });
+  const names = (await mcp.listTools()).map((tool) => tool.name);
+  await mcp.close();
+  return names;
+};
+const commands = async (env: NodeJS.ProcessEnv) =>
+  (JSON.parse((await cli(app, ["agent-context", "--brief"], { env })).stdout).commands as Array<{ command: string; requires_confirm?: boolean }>);
+
+describe("Telegram on Slipway", () => {
+  it("makes all 74 tools commands, the irreversible ones needing confirmation", async () => {
+    const all = await commands({ TELEGRAM_TOOLS: "full", TELEGRAM_ALLOW_DESTRUCTIVE: "1" });
+    expect(all.map((c) => c.command).sort()).toEqual(TOOLS.map((tool) => tool.command).sort());
+    expect(all).toHaveLength(74);
+    expect(all.filter((c) => c.requires_confirm).map((c) => c.command).sort()).toEqual(
+      ["delete", "delete-contact", "delete-folder", "delete-history", "delete-profile-photo", "delete-scheduled", "leave-chat", "set-banned"].sort(),
+    );
   });
 
-  it("reads required from the absence of .optional()", () => {
-    const flags = flagsFor({ text: z.string(), account: z.string().optional() });
-    expect(flags.find((f) => f.key === "text")?.required).toBe(true);
-    expect(flags.find((f) => f.key === "account")?.required).toBe(false);
+  it("lists the 13 daily tools to an MCP client by default, every tool with TELEGRAM_TOOLS=full, every read with read", async () => {
+    expect(await listed({})).toHaveLength(13);
+    expect(await listed({ TELEGRAM_TOOLS: "full" })).toHaveLength(74);
+    const reads = await listed({ TELEGRAM_TOOLS: "read" });
+    expect(reads).toHaveLength(31);
+    expect(reads).not.toContain("send");
+    // A module by name, as a toolset.
+    expect(await listed({ TELEGRAM_TOOLSETS: "topics" })).toContain("create_topic");
   });
 
-  it("carries .describe() through as help", () => {
-    const flags = flagsFor({ text: z.string().describe("The post body.") });
-    expect(flags[0]?.help).toBe("The post body.");
+  it("runs every command in the terminal whatever TELEGRAM_TOOLS says, as 0.4 did", async () => {
+    expect(await commands({})).toHaveLength(74);
+    expect(await commands({ TELEGRAM_TOOLS: "read" })).toHaveLength(74);
+    expect((await cli(app, ["create-topic", "--help"], { env: {} })).code).toBe(0);
+    expect((await cli(app, ["which", "create", "a", "forum", "topic"], { env: {} })).stdout).toContain("create-topic");
+    // A send gets as far as asking for credentials, and none are set here.
+    expect((await cli(app, ["send", "--peer", "me", "--text", "hi", "--agent"], { env: { TELEGRAM_TOOLS: "read" } })).code).toBe(10);
   });
 
-  it("finds the description whichever side of .optional() it was chained", () => {
-    const outer = flagsFor({ a: z.string().optional().describe("outer") });
-    const inner = flagsFor({ b: z.string().describe("inner").optional() });
-    expect(outer[0]?.help).toBe("outer");
-    expect(inner[0]?.help).toBe("inner");
-  });
-
-  it("exposes an enum's values as choices", () => {
-    const flags = flagsFor({ reply_control: z.enum(["everyone", "nobody"]).optional() });
-    expect(flags[0]).toMatchObject({ kind: "enum", choices: ["everyone", "nobody"] });
-  });
-
-  it("marks a scalar array repeatable and an object array json", () => {
-    const flags = flagsFor({
-      langs: z.array(z.string()).optional(),
-      images: z.array(z.object({ url: z.string() })).optional(),
+  it("keeps irreversible tools off until TELEGRAM_ALLOW_DESTRUCTIVE=1, and then asks first", async () => {
+    const off = await cli(app, ["delete", "--peer", "me", "--message-ids", "1", "--confirm", "--agent"], { env: {} });
+    expect(off.code).toBe(2);
+    expect(JSON.parse(off.stderr)).toMatchObject({
+      error: "delete is unavailable: irreversible writes are off until TELEGRAM_ALLOW_DESTRUCTIVE=1 is set.",
+      hint: "Set TELEGRAM_ALLOW_DESTRUCTIVE=1 to allow irreversible writes.",
     });
-    expect(flags.find((f) => f.key === "langs")).toMatchObject({ kind: "string", repeatable: true });
-    expect(flags.find((f) => f.key === "images")).toMatchObject({ kind: "json", repeatable: true });
+    const on = { TELEGRAM_ALLOW_DESTRUCTIVE: "1" };
+    const unconfirmed = await cli(app, ["delete", "--peer", "me", "--message-ids", "1", "--agent"], { env: on });
+    expect(unconfirmed.code).toBe(2);
+    expect(JSON.parse(unconfirmed.stderr).error).toMatch(/^delete is irreversible, so it will not run without --confirm\. About to: delete 1 message\(s\) in me\./);
+    // Confirmed, it gets as far as asking for credentials, and none are set here.
+    expect((await cli(app, ["delete", "--peer", "me", "--message-ids", "1", "--confirm", "--agent"], { env: on })).code).toBe(10);
+  });
+
+  it("reads a list of message ids as numbers, as 0.4 did", async () => {
+    const run = await cli(app, ["delete", "--peer", "me", "--message-ids", "1", "--message-ids", "2", "--dry-run", "--agent"], { env: { TELEGRAM_ALLOW_DESTRUCTIVE: "1" } });
+    expect(run.code).toBe(0);
+    expect(JSON.parse(run.stdout)).toMatchObject({ would_run: { message_ids: [1, 2] } });
+  });
+
+  it("says exactly which credential is missing, with exit 10", async () => {
+    const run = await cli(app, ["history", "--peer", "me", "--agent"], { env: {} });
+    expect(run.code).toBe(10);
+    expect(JSON.parse(run.stderr).error).toMatch(/^Missing TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION\./);
+  });
+
+  it("calls a session GramJS cannot read a setup problem, before any connection", async () => {
+    const env = { TELEGRAM_API_ID: "1", TELEGRAM_API_HASH: "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f", TELEGRAM_SESSION: "not-a-session" };
+    const run = await cli(app, ["history", "--peer", "me", "--agent"], { env });
+    expect(run.code).toBe(10);
+    expect(JSON.parse(run.stderr).error).toMatch(/^TELEGRAM_SESSION is not a session string telegram-cli login printed\./);
+  });
+
+  it("gives Telegram's failures the exit codes 0.4 gave them", () => {
+    const code = (error: unknown) => (toSlipway(error) as { exitCode: number }).exitCode;
+    expect(code(new TelegramError("RATE_LIMIT", "slow down", { retryAfter: 42 }))).toBe(7);
+    expect((toSlipway(new TelegramError("RATE_LIMIT", "slow down", { retryAfter: 42 })) as { retryAfterSeconds?: number }).retryAfterSeconds).toBe(42);
+    expect(code(new TelegramError("AUTH", "session revoked"))).toBe(4);
+    expect(code(new TelegramError("NOT_FOUND", "no such chat"))).toBe(3);
+    expect(code(new TelegramError("REFUSED", "not allowed here"))).toBe(2);
+    expect(code(new TelegramError("FORBIDDEN", "admin required"))).toBe(5);
+    expect(code(new TelegramError("API", "internal"))).toBe(5);
+    expect(code(new ConfigError("Missing TELEGRAM_SESSION."))).toBe(10);
+  });
+
+  it("passes slipway check", async () => {
+    for (const each of [app, channelApp]) {
+      const report = await checkApp(each, { env: { TELEGRAM_TOOLS: "full" } });
+      expect(report.findings.filter((finding: { level: string }) => finding.level === "error")).toEqual([]);
+    }
   });
 });
 
-describe("parseArgs", () => {
-  const flags = flagsFor({
-    text: z.string(),
-    limit: z.number().optional(),
-    confirm: z.boolean().optional(),
-    langs: z.array(z.string()).optional(),
-    link: z.object({ uri: z.string() }).optional(),
-    reply_control: z.enum(["everyone", "nobody"]).optional(),
+describe("the channel", () => {
+  it("declares claude/channel under the experimental capabilities, with its three tools", async () => {
+    const mcp = await connect(channelApp, { env: {} });
+    const names = (await mcp.listTools()).map((tool) => tool.name);
+    await mcp.close();
+    expect(mcp.initialize.capabilities).toMatchObject({ experimental: { "claude/channel": {} } });
+    expect(mcp.initialize.instructions).toMatch(/reply tool, passing the chat_id/);
+    expect(names).toEqual(["reply", "allow_chat", "list_allowed"]);
   });
 
-  it("accepts --flag value and --flag=value alike", () => {
-    expect(parseArgs(["--text", "hi"], flags)).toEqual({ text: "hi" });
-    expect(parseArgs(["--text=hi"], flags)).toEqual({ text: "hi" });
-  });
-
-  it("accepts the underscore spelling of a flag", () => {
-    expect(parseArgs(["--reply_control", "nobody"], flags)).toEqual({ reply_control: "nobody" });
-  });
-
-  it("treats a boolean as a bare switch", () => {
-    expect(parseArgs(["--text", "hi", "--confirm"], flags)).toEqual({ text: "hi", confirm: true });
-    expect(parseArgs(["--confirm=false"], flags)).toEqual({ confirm: false });
-  });
-
-  it("coerces numbers, and refuses ones that are not", () => {
-    expect(parseArgs(["--limit", "25"], flags)).toEqual({ limit: 25 });
-    expect(() => parseArgs(["--limit", "many"], flags)).toThrow(/expects a number/);
-  });
-
-  it("parses a json flag, and refuses malformed json", () => {
-    expect(parseArgs(['--link={"uri":"https://x.com"}'], flags)).toEqual({
-      link: { uri: "https://x.com" },
+  it("forwards a message from an allowed chat, and drops one from any other", async () => {
+    writeFileSync(allowFile, JSON.stringify({ chats: ["100"], personas: { "100": "coach" } }));
+    let handler: ((event: unknown) => Promise<void>) | undefined;
+    const api = { connect: async () => ({ addEventHandler: (fn: (event: unknown) => Promise<void>) => (handler = fn) }) };
+    const sent: Array<{ method: string; params?: Record<string, unknown> }> = [];
+    const log = { info: () => undefined, warn: () => undefined };
+    await listen({ api } as never, log, async (method, params) => (sent.push({ method, params }), true));
+    const event = (chat: number, text: string) => ({
+      message: { id: 7, message: text },
+      getChat: async () => ({ id: chat }),
+      getSender: async () => ({ firstName: "Ana" }),
     });
-    expect(() => parseArgs(["--link", "{oops"], flags)).toThrow(/expects JSON/);
-  });
-
-  it("collects a repeatable flag into an array", () => {
-    expect(parseArgs(["--langs", "en", "--langs", "sv"], flags)).toEqual({ langs: ["en", "sv"] });
-  });
-
-  it("checks an enum against its choices", () => {
-    expect(() => parseArgs(["--reply-control", "friends"], flags)).toThrow(/expects one of/);
-  });
-
-  it("fills the first required flag from a bare argument", () => {
-    expect(parseArgs(["hello"], flags)).toEqual({ text: "hello" });
-  });
-
-  it("wraps a bare argument when the required flag is repeatable", () => {
-    const repeatable = flagsFor({ actors: z.array(z.string()) });
-    expect(parseArgs(["bsky.app"], repeatable)).toEqual({ actors: ["bsky.app"] });
-  });
-
-  it("refuses an unknown option rather than dropping it", () => {
-    expect(() => parseArgs(["--nope", "x"], flags)).toThrow(/Unknown option/);
-  });
-
-  it("refuses a second bare argument", () => {
-    expect(() => parseArgs(["one", "two"], flags)).toThrow(/Unexpected argument/);
-  });
-});
-
-describe("parity with the MCP surface", () => {
-  it("routes every tool name, in both spellings", () => {
-    for (const tool of ALL_TOOLS) {
-      expect(isCliCommand([tool.name])).toBe(true);
-      expect(isCliCommand([tool.name.replace(/_/g, "-")])).toBe(true);
-    }
-  });
-
-  it("builds flags for every tool without throwing", () => {
-    for (const tool of ALL_TOOLS) {
-      expect(() => flagsFor(tool.schema)).not.toThrow();
-    }
-  });
-
-  it("gives every schema key a flag", () => {
-    for (const tool of ALL_TOOLS) {
-      expect(flagsFor(tool.schema)).toHaveLength(Object.keys(tool.schema).length);
-    }
-  });
-
-  it("leaves the server's own flags alone", () => {
-    expect(isCliCommand(["--http"])).toBe(false);
-    expect(isCliCommand(["--version"])).toBe(false);
-    expect(isCliCommand([])).toBe(false);
+    await handler!(event(100, "hello"));
+    await handler!(event(200, "not for you"));
+    expect(sent).toEqual([
+      { method: "notifications/claude/channel", params: { content: "hello", meta: { chat_id: "100", message_id: "7", sender: "Ana", persona: "coach" } } },
+    ]);
   });
 });
 
 describe("documentation stays in step with the code", () => {
   const read = (p: string): string => readFileSync(new URL(p, import.meta.url), "utf-8");
-  const names = (text: string): Set<string> => new Set(text.match(/TELEGRAM_[A-Z_]+/g) ?? []);
+  const names = (text: string): Set<string> => new Set((text.match(/\bTELEGRAM_[A-Z_]+/g) ?? []).filter((name) => !name.endsWith("_")));
+  const source = (dir: string): string =>
+    readdirSync(new URL(dir, import.meta.url), { withFileTypes: true })
+      .map((entry) => (entry.isDirectory() ? source(`${dir}${entry.name}/`) : entry.name.endsWith(".ts") ? read(`${dir}${entry.name}`) : ""))
+      .join("\n");
 
-  /**
-   * Every source file, not a hand-listed few. A variable read from a module
-   * nobody remembered to add to the list is exactly the drift this catches.
-   */
-  const allSource = (): string => {
-    const dir = new URL("../src/", import.meta.url);
-    const walk = (u: URL): string[] =>
-      readdirSync(u, { withFileTypes: true }).flatMap((e) =>
-        e.isDirectory()
-          ? walk(new URL(`${e.name}/`, u))
-          : e.name.endsWith(".ts")
-            ? [readFileSync(new URL(e.name, u), "utf-8")]
-            : [],
-      );
-    return walk(dir).join("\n");
-  };
-
-  /**
-   * Two variables shipped undocumented and five never reached `--help`, which is
-   * the kind of drift nobody notices because both sides look complete on their own.
-   */
-  it("documents every environment variable the code reads", () => {
-    const used = names(allSource());
+  it("documents every environment variable the code reads", async () => {
+    const context = JSON.parse((await cli(app, ["agent-context"], { env: {} })).stdout);
+    const fromCode = [...source("../src/").matchAll(/env\.(TELEGRAM_[A-Z0-9_]+)/g)].map((m) => m[1] as string);
+    const used = new Set([...fromCode, ...context.settings.map((setting: { env: string }) => setting.env)]);
     const documented = names(read("../README.md"));
     expect([...used].filter((v) => !documented.has(v))).toEqual([]);
   });
 
-  it("lists every environment variable in --help", () => {
-    const used = names(allSource());
-    const helped = names(read("../src/index.ts"));
-    // The help groups the three HTTP ones as `TELEGRAM_HTTP_PORT / _HOST / _TOKEN`.
-    const shorthand = new Set(["TELEGRAM_HTTP_HOST", "TELEGRAM_HTTP_TOKEN"]);
-    expect([...used].filter((v) => !helped.has(v) && !shorthand.has(v))).toEqual([]);
-  });
-
-  /**
-   * Two in-page links pointed at headings that had been renamed, including the
-   * one row routing a shell user to the CLI. The ship checklist's link pass only
-   * greps http, so a dead `#anchor` is the kind that ships quietly.
-   */
-  it.each(["../README.md", "../INSTALL.md"])("has no dead in-page anchors in %s", (file) => {
-    const md = read(file);
-    const slugs = new Set<string>();
-    for (const [, heading] of md.matchAll(/^#{2,4} (.+)$/gm)) {
-      const stripped = (heading as string).toLowerCase().replace(/[^\w\s-]/g, "");
-      // GitHub keeps the trailing hyphen when a heading ends in an emoji.
-      slugs.add(stripped.trim().replace(/\s+/g, "-"));
-      slugs.add(stripped.replace(/\s+/g, "-"));
-    }
-    const dead = [...md.matchAll(/\[[^\]]+\]\(#([^)]+)\)/g)]
-      .map((m) => m[1] as string)
-      .filter((a) => !slugs.has(a));
+  it.each(["../README.md"])("has no dead in-page anchors in %s", (file) => {
+    if (!existsSync(new URL(file, import.meta.url))) return;
+    const md = read(file).replace(/```[\s\S]*?```/g, "");
+    // GitHub's slug keeps letters, marks, numbers and connector punctuation, so an
+    // emoji's variation selector (U+FE0F) stays in the anchor and a link has to carry it.
+    const slugs = new Set(
+      [...md.matchAll(/^#{1,6} (.+)$/gm)].map(([, heading]) =>
+        (heading as string).trim().toLowerCase().replace(/[^\p{L}\p{M}\p{N}\p{Pc}\s-]/gu, "").replace(/ /g, "-"),
+      ),
+    );
+    const dead = [...md.matchAll(/\[[^\]]+\]\(#([^)]+)\)/g)].map((m) => decodeURIComponent(m[1] as string)).filter((a) => !slugs.has(a));
     expect(dead).toEqual([]);
-  });
-});
-
-describe("a list of numbers", () => {
-  it("parses each value as a number, so validation passes", () => {
-    const flags = flagsFor({ ids: z.array(z.number().int()).describe("Ids.") });
-    expect(flags[0]).toMatchObject({ kind: "number", repeatable: true });
-    expect(parseArgs(["--ids", "1", "--ids", "22"], flags)).toEqual({ ids: [1, 22] });
-    expect(() => parseArgs(["--ids", "x"], flags)).toThrow(/number/);
-  });
-});
-
-describe("a refused write", () => {
-  it("exits 2, like any write the server will not run", () => {
-    expect(exitCodeFor({ code: "REFUSED", message: "delete is irreversible and TELEGRAM_ALLOW_DESTRUCTIVE is off on this server." })).toBe(EXIT.usage);
   });
 });

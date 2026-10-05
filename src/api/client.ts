@@ -9,7 +9,7 @@
 import { TelegramClient, Api } from "telegram";
 import { StringSession } from "telegram/sessions/index.js";
 import { Logger, LogLevel } from "telegram/extensions/Logger.js";
-import type { Config } from "../config.js";
+import { ConfigError, requireConfig, type Config } from "../config.js";
 import { translate } from "./errors.js";
 
 /** A username, phone, numeric id, or "me". */
@@ -30,9 +30,20 @@ export class TelegramApi {
    */
   async connect(): Promise<TelegramClient> {
     if (this.client) return this.client;
+    // Missing credentials are reported here, by the first call that needs them, as setup.
+    requireConfig(this.config);
+
+    // GramJS throws "Not a valid string" for a session it cannot read, before any
+    // connection. That is a setup problem, so it says which variable and what to run.
+    let session: StringSession;
+    try {
+      session = new StringSession(this.config.session);
+    } catch {
+      throw new ConfigError("TELEGRAM_SESSION is not a session string telegram-cli login printed. Run: telegram-cli login");
+    }
 
     const client = new TelegramClient(
-      new StringSession(this.config.session),
+      session,
       this.config.apiId,
       this.config.apiHash,
       {

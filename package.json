@@ -1,6 +1,6 @@
 {
   "name": "@thenavidm/telegram-mcp-cli",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "description": "Telegram MCP server and CLI for Claude Code, Codex and AI agents. 74 tools for chats, history, search, sending, media, contacts, groups, admin, topics, reactions, polls, folders and privacy, on your real Telegram account over MTProto.",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,7 +10,7 @@
     "telegram-mcp-cli": "dist/npx.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "build": "tsc",
@@ -21,10 +21,8 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.18.0",
-    "telegram": "^2.26.22",
-    "zod": "^3.23.8",
-    "zod-to-json-schema": "^3.24.1"
+    "@thenavidm/slipway": "^0.1.24",
+    "telegram": "^2.26.22"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

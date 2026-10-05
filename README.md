@@ -36,12 +36,15 @@ telegram-cli history --peer @sarah --limit 20      # one conversation
 telegram-cli search --query invoice                # across every chat
 telegram-cli send --peer me --text "note to self"  # Saved Messages
 telegram-cli list-chats --json | jq -r '.items[].name'
+telegram-cli which search my messages             # find the command for a task
 telegram-cli <command> --help                      # what any command takes
 ```
 
 `--confirm` is the shell spelling of the confirmation that deleting requires.
-`--json` gives JSON, `--compact` puts it on one line, and errors are JSON on
-stderr whichever you pick.
+`--json` gives JSON, `--compact` puts it on one line, `--agent` turns on both
+with no prompts and no color, and errors are JSON on stderr whichever you pick.
+Built on [Slipway](https://github.com/thenavidm/slipway), which turns one
+definition of each tool into the MCP server and the CLI.
 
 Reads return real objects rather than rendered text, so `--json` hands you
 fields you can filter, and `--fields id,text` cuts the response before it is
@@ -358,11 +361,12 @@ A script branches on the number.
 | Code | Means |
 |---|---|
 | 0 | Fine |
+| 1 | Something unexpected went wrong |
 | 2 | Bad usage, or a write refused for want of `--confirm` |
 | 3 | No such chat, user or message |
 | 4 | The session is invalid or expired |
 | 5 | Telegram rejected the call, or forbade it |
-| 7 | Rate limited, `retryAfter` says how long |
+| 7 | Rate limited, `retry_after_seconds` says how long |
 | 10 | Nothing configured yet |
 
 ## 6. Which surface, and what each costs
@@ -372,10 +376,10 @@ difference is when the model pays for them. Measured in Claude Code:
 
 | | MCP server | CLI |
 |---|---|---|
-| Every message, with every tool loaded | 2,800 tokens | nothing |
+| Every message, with every tool loaded | 2,400 tokens | nothing |
 | Every message, Claude Code's default | 130 tokens | nothing |
-| When Telegram comes up | nothing more, or the tools it picks | 2,600 tokens for `SKILL.md`, once |
-| 20 messages with Telegram in 1, every tool loaded | 56,000 tokens | 2,600 tokens |
+| When Telegram comes up | nothing more, or the tools it picks | 2,300 tokens for `SKILL.md`, once |
+| 20 messages with Telegram in 1, every tool loaded | 48,000 tokens | 2,300 tokens |
 
 Claude Code's [tool search](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search)
 is on by default: it sends only the tool names and the server instructions,
@@ -385,14 +389,27 @@ Telegram comes up or not. With the skill added, Claude Code also lists its
 one-line description, about 130 tokens.
 
 To spend less, turn the server off when you are not using it, which in Claude
-Code is the `/mcp` panel. `TELEGRAM_READ_ONLY=1` takes the 6 write tools off the list, leaving 7. These numbers are the default profile's 13 tools; `TELEGRAM_TOOLS=full` lists all 74 and costs more.
+Code is the `/mcp` panel. `TELEGRAM_READ_ONLY=1` takes the six write tools off the list, leaving seven. These numbers are the default profile's 13 tools; `TELEGRAM_TOOLS=full` lists all 74 and costs more.
 Or install the CLI and add the server on the days it earns its place.
 
-Measured on 2026-09-27 with Claude Code 2.1.257 on Claude Opus 5: one
-short prompt with and without the server connected, once with
-`ENABLE_TOOL_SEARCH=false` and once with the default, the difference read
-from the API's own usage figures. `SKILL.md` was measured the same way. Other
-apps and models count tokens a little differently.
+Measured on 2026-10-05 against 0.4.4, with Claude Code 2.1.286 on Claude Opus
+5.5 (one short prompt with and without the server connected, once with
+`ENABLE_TOOL_SEARCH=false` and once with the default, the difference read from
+the API's own usage figures; `SKILL.md` the same way) and Codex 0.159.3 on
+gpt-6.1-sol, with a placeholder session that cannot connect:
+
+| Cost | 0.4.4 | 0.5.0 |
+| --- | --- | --- |
+| Claude Code, the 13 daily tools loaded, every message | 2,820 | 2,380 |
+| Claude Code, all 74 loaded (`TELEGRAM_TOOLS=full`), every message | 14,438 | 11,868 |
+| Claude Code's default, tool search, every message (median of nine runs) | 123 | 124 |
+| `SKILL.md`, read once | 2,581 | 2,293 |
+| Codex over the CLI, one task, median of five | 72,800 | 53,221 |
+| Codex over MCP, the same task, median of five | 35,380 | 35,372 |
+
+The task was "find the command that searches message text across every chat,
+and the flags it requires". Other apps and models count tokens a little
+differently, and tool-list characters divided by four are not API usage.
 
 ## 7. Tools
 
@@ -421,7 +438,7 @@ Messages.
 
 ### The default 13
 
-What `TELEGRAM_TOOLS=core` advertises, which is the default: about 2,800
+What `TELEGRAM_TOOLS=core` advertises, which is the default: about 2,400
 tokens a message in an app that loads every tool, measured in Claude Code.
 
 #### Account
@@ -460,7 +477,7 @@ tokens a message in an app that loads every tool, measured in Claude Code.
 ### The other 61
 
 Always reachable from the CLI, where an unused command costs nothing.
-`TELEGRAM_TOOLS=full` loads them into the server too, at about 14,400 tokens a
+`TELEGRAM_TOOLS=full` loads them into the server too, at about 11,900 tokens a
 message in an app that loads every tool.
 See [section 6](#6-which-surface-and-what-each-costs) before you do.
 
@@ -572,9 +589,13 @@ work back to you. Shipping them unguarded is worse, because `send` posts as you
 to a real person and `delete` with revoke removes messages for everyone in the
 chat, not only your copy.
 
-So: reversible writes run. `delete` refuses without an explicit confirmation,
-and the refusal names the right syntax for wherever you are, `--confirm` in a
-terminal and `confirm: true` in a tool call.
+So: reversible writes run. Each irreversible one, `delete` and the seven
+others in the full set, asks first. Over MCP a person approves it: Claude Code
+(2.1.246 and later) shows its own prompt, and a client that can show forms
+asks with an approval form whose one box starts unticked. Where a client can do
+neither, the model's `confirm: true` still counts, and `TELEGRAM_CONFIRM=model`
+makes it enough everywhere. In a terminal it is `--confirm`, which `--agent`
+never adds.
 
 ### Turning writes off entirely
 
@@ -582,11 +603,11 @@ terminal and `confirm: true` in a tool call.
 TELEGRAM_READ_ONLY=1
 ```
 
-Write tools are not merely refused, they are never registered, so the model
-cannot see them and will not try. That drops the tool list to the 7 reads.
+Write tools are not merely refused, they are left off the list, so the model
+cannot see them and will not try. That drops the default list to the 7 reads.
 
-`TELEGRAM_ALLOW_DESTRUCTIVE` is off by default and separate: `delete` is
-unavailable until you turn it on, even with writes enabled.
+`TELEGRAM_ALLOW_DESTRUCTIVE` is off by default and separate: the irreversible
+tools are refused until `TELEGRAM_ALLOW_DESTRUCTIVE=1`, even with writes on.
 
 ### Annotations
 
@@ -602,8 +623,9 @@ TELEGRAM_AUDIT_LOG=~/telegram-writes.jsonl
 ```
 
 One line per write attempted, allowed or blocked, with the tool, a one-line
-summary and the outcome. Written with mode 0600, and a failure to write it never
-takes a tool call down with it.
+summary, the outcome and who approved it, then a line when it is done or
+failed. Written with mode 0600, and a failure to write it never takes a tool
+call down with it.
 
 ### Prompt injection
 
@@ -713,13 +735,13 @@ accounts limited. This is built for reading your own chats and answering them.
 
 | Symptom | Cause and fix |
 |---|---|
-| `NOT_CONFIGURED`, exit 10 | One of the three variables is missing. `telegram-cli doctor` names it |
-| `AUTH`, exit 4 | Session revoked or expired. Run `login` again |
-| `RATE_LIMIT`, exit 7 | Flood wait. The error says how many seconds. Wait, do not retry |
-| `NOT_FOUND` on a peer | Use `resolve` or `list_chats` to get a valid id first |
+| `not_configured`, exit 10 | One of the three variables is missing. `telegram-cli doctor` names it |
+| `auth`, exit 4 | Session revoked or expired. Run `login` again |
+| `rate_limited`, exit 7 | Flood wait. `retry_after_seconds` says how long. Wait, do not retry |
+| `not_found` on a peer | Use `resolve` or `list_chats` to get a valid id first |
 | The server starts then exits | Usually a bad session string. `doctor` connects and will say so |
 | Garbled JSON-RPC in a client | Something is writing to stdout. Open an issue with the client name |
-| `delete` refuses | By design. `--confirm`, and `TELEGRAM_ALLOW_DESTRUCTIVE=1` |
+| `delete` refuses | By design. `TELEGRAM_ALLOW_DESTRUCTIVE=1`, then a person's approval or `--confirm` |
 
 ## Environment variables
 
@@ -735,8 +757,9 @@ accounts limited. This is built for reading your own chats and answering them.
 
 | Variable | What it does |
 |---|---|
-| `TELEGRAM_READ_ONLY=1` | Never registers a write tool, so the model cannot see one |
-| `TELEGRAM_ALLOW_DESTRUCTIVE=1` | Permits `delete` at all. Off by default |
+| `TELEGRAM_READ_ONLY=1` | Leaves every write off the list, so the model cannot see one |
+| `TELEGRAM_ALLOW_DESTRUCTIVE=1` | Permits the irreversible tools at all. Off by default |
+| `TELEGRAM_CONFIRM=model` | Lets `confirm: true` alone approve an irreversible call over MCP, for an agent with no person to ask |
 | `TELEGRAM_AUDIT_LOG` | Append-only record of every write attempted, allowed or blocked |
 
 **Tuning**
@@ -744,17 +767,20 @@ accounts limited. This is built for reading your own chats and answering them.
 | Variable | What it does |
 |---|---|
 | `TELEGRAM_TOOLS` | `core` (default), `full`, or `read`. Decides context cost |
+| `TELEGRAM_TOOLSETS` | The same choice by module, comma separated: `core`, `account`, `chats`, `messages`, `media`, `contacts`, `groups`, `engage`, `organize`, `profile`, `topics`, `stickers`, `folders`, or `all`. Unlike `TELEGRAM_TOOLS`, it narrows the CLI too |
+| `TELEGRAM_SURFACE` | `search` lists three tools that find, describe and run the rest |
 | `TELEGRAM_TIMEOUT` | Per-call deadline in seconds, default 30 |
+| `TELEGRAM_TOOL_TIMEOUT_MS` | Give up on any tool after this long |
+| `TELEGRAM_DEBUG` | `1` prints debug lines on stderr |
 
 **Several accounts**
 
 | Variable | What it does |
 |---|---|
-| `TELEGRAM_SESSION_<LABEL>` | A second account, for example `TELEGRAM_SESSION_WORK`. Reach it with the `account` argument |
+| `TELEGRAM_SESSION_<LABEL>` | A second account, for example `TELEGRAM_SESSION_WORK`. Read and kept as a secret, but no tool chooses between accounts yet |
 
-Every account-scoped tool takes an optional `account`, matched loosely against
-the label, so one server can hold a personal and a work account rather than
-running two.
+0.4's docs said every account-scoped tool took an optional `account`; none did.
+Run one server per account until one does.
 
 **Pushing messages into a session**
 
@@ -767,7 +793,11 @@ telegram-mcp --channel
 ```
 
 Runs as a Claude Code channel, pushing real Telegram messages into a session
-that is already open. The official Telegram channel is a bot, so it only sees
+that is already open. It declares `claude/channel` under the experimental
+capabilities, where Claude Code looks for it, and tells the model to reply
+with the `reply` tool and the `chat_id` from the event. A channel you build
+yourself is not on Claude Code's allowlist, so start Claude Code with
+`--dangerously-load-development-channels server:<the name in your MCP config>`. The official Telegram channel is a bot, so it only sees
 messages sent to that bot. This one is backed by your account, so an event can
 come from any chat you are actually in.
 
@@ -786,14 +816,16 @@ which chat the message came from.
 | `TELEGRAM_HTTP_PORT` | Port for `--http`, default 8787 |
 | `TELEGRAM_HTTP_HOST` | Interface for `--http`, default `127.0.0.1` |
 | `TELEGRAM_HTTP_TOKEN` | Bearer token required on every HTTP request |
+| `TELEGRAM_HTTP_ALLOWED_ORIGINS` | Comma-separated browser origins allowed to call `--http`; a page from any other site is refused |
 
 ```bash
 telegram-mcp --http --port=8787
 ```
 
 Binds to loopback, because a process holding a session string should not be
-reachable from the network. Moving it off loopback without setting
-`TELEGRAM_HTTP_TOKEN` hands your account to anyone who can route to the port.
+reachable from the network, and refuses to bind anywhere else without
+`TELEGRAM_HTTP_TOKEN`, which would hand your account to anyone who can route to
+the port.
 
 ## Running it 24/7
 
@@ -970,10 +1002,9 @@ If this is useful, star the repo and come say hi on [X](https://x.com/thenavidm)
 
 | Library | License | What it does |
 |---|---|---|
-| [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) | MIT | The MCP server and transports |
+| [Slipway](https://github.com/thenavidm/slipway) | Apache-2.0 | The MCP server and the CLI from one definition of each tool |
+| [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) | Apache-2.0 | The MCP protocol and its transports, through Slipway |
 | [GramJS](https://github.com/gram-js/gramjs) | MIT | The MTProto client, published as `telegram` |
-| [zod](https://github.com/colinhacks/zod) | MIT | Tool argument schemas and validation |
-| [zod-to-json-schema](https://github.com/StefanTerdell/zod-to-json-schema) | ISC | Turns those schemas into what an MCP client receives |
 
 ## License
 

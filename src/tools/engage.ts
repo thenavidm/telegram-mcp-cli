@@ -1,6 +1,6 @@
 /** Pins, reactions, polls and scheduled messages. */
 
-import { z } from "zod";
+import { z } from "@thenavidm/slipway";
 import { clamp, confirmArg, defineTool, selectArg } from "./kit.js";
 import { messageRow, page, select } from "../format/render.js";
 

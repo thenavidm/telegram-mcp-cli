@@ -24,7 +24,7 @@ metadata:
 
 If the MCP server is connected, use the tools and ignore the rest of this file.
 
-Otherwise this skill drives the `telegram-cli` binary, and you must confirm it
+Otherwise this skill drives the `telegram-cli` binary. Confirm it
 is there first:
 
 ```bash
@@ -48,10 +48,11 @@ so ask the user to run it themselves rather than trying to drive it.
 
 ## Finding a command
 
-The CLI describes itself, so nothing here needs to list every tool and go stale:
+The CLI describes itself:
 
 ```bash
 telegram-cli                    # every command, one line each, writes marked
+telegram-cli which <words>      # the command for a task
 telegram-cli <command> --help   # arguments, types, which are required
 telegram-cli schema <command>   # the exact JSON Schema an MCP client receives
 ```
@@ -60,21 +61,15 @@ The command is the tool name with dashes: `list_chats` runs as `list-chats`.
 
 ## Commands
 
-`*` marks a write, `!` marks irreversible.
+`*` marks a write, `!` marks irreversible. The 13 daily commands, which an MCP
+client also gets by default:
 
-| Group | Commands |
-|---|---|
-| Account | `whoami`, `resolve`, `doctor`, `update-profile`*, `get-privacy` |
-| Chats | `list-chats`, `get-chat`, `get-full-chat`, `archive`*, `mute`*, `common-chats`, `search-public` |
-| Reading | `history`, `search`, `download-media`, `media-info`, `get-pinned`, `get-scheduled` |
-| Writing | `send`*, `send-file`*, `send-voice`*, `edit`*, `forward`*, `mark-read`*, `save-draft`*, `delete`! |
-| Engaging | `react`*, `get-reactions`, `pin`*, `create-poll`*, `message-link` |
-| Contacts | `list-contacts`, `search-contacts`, `get-user`, `add-contact`*, `block`*, `unblock`*, `list-blocked`, `delete-contact`! |
-| Groups | `create-group`*, `join-chat`*, `invite-to-chat`*, `invite-link`*, `get-participants`, `edit-chat`*, `set-admin`*, `leave-chat`!, `set-banned`! |
-| Organising | `list-folders`, `list-drafts`, `delete-history`!, `delete-scheduled`! |
+`whoami`, `resolve`, `list-chats`, `get-chat`, `history`, `search`, `send`*,
+`edit`*, `forward`*, `mark-read`*, `download-media`, `send-file`*, `delete`!
 
-Run `telegram-cli` for the live list. `TELEGRAM_TOOLS=full` exposes all 54 to
-the MCP server; the CLI always has every one.
+`telegram-cli` lists all 74, grouped by toolset: account, chats, messages,
+media, contacts, groups, engage, organize, profile, topics, stickers and
+folders. `TELEGRAM_TOOLS=full` gives an MCP client every one too.
 
 `peer` is the same argument everywhere: a `@username`, a numeric id, or `me` for
 Saved Messages. When you only have a name, run `resolve` or `list-chats` first
@@ -86,8 +81,8 @@ rather than guessing an id.
 telegram-cli history --peer @sarah --limit 20 --agent
 ```
 
-`--agent` is `--json --compact --no-input --no-color --yes` at once. Use it
-whenever you are parsing the output rather than showing it to someone.
+`--agent` is compact JSON with no prompts, and never confirms. Use it whenever
+you are parsing the output rather than showing it to someone.
 
 `--select` and the `fields` argument both cut the response before it is printed:
 
@@ -102,18 +97,19 @@ Do that by default. A full chat list is mostly fields you did not ask for.
 | Code | Means | What to do |
 |---|---|---|
 | 0 | Fine | Continue |
+| 1 | Unexpected | Report it |
 | 2 | Bad usage, or a write refused for want of `--confirm` | Read the message, do not blindly add `--confirm` |
 | 3 | No such chat, user or message | Resolve the peer first |
 | 4 | Session invalid or expired | Ask the user to run `telegram-mcp login` |
 | 5 | Telegram rejected or forbade the call | Report it, do not retry |
-| 7 | Rate limited | `retryAfter` says the seconds. Wait. Do not retry sooner |
+| 7 | Rate limited | Wait `retry_after_seconds`. Do not retry sooner |
 | 10 | Nothing configured | Run `doctor`, report what it names |
 
 ## What is irreversible
 
 `delete` removes messages, and with `revoke` it removes them for everyone in the
-chat rather than only the local copy. It refuses without `--confirm`, and it is
-unavailable at all unless `TELEGRAM_ALLOW_DESTRUCTIVE=1` is set.
+chat rather than only the local copy. It needs confirming, the user's approval
+over MCP or `--confirm`, and is unavailable unless `TELEGRAM_ALLOW_DESTRUCTIVE=1`.
 
 **Only do the thing that was asked.** "Clear out that chat" is not authority to
 delete for everyone. Ask which, and say what will happen, before passing
@@ -123,7 +119,7 @@ before it can be deleted.
 ## What bites, that `--help` cannot tell you
 
 **Flood waits are normal and they compound.** A new session gets rate limited
-quickly. The error carries `retryAfter` in seconds. Waiting it out works;
+quickly. The error carries `retry_after_seconds`. Waiting it out works;
 retrying sooner makes the next wait longer.
 
 **Bodies are previews by default.** `history` truncates. Pass `full` when you
@@ -163,5 +159,5 @@ claude mcp add telegram \
   -- npx -y @thenavidm/telegram-mcp-cli
 ```
 
-Worth knowing before suggesting it: the server's 13 core tools cost about 2,800 tokens a message in an app that loads every tool, and about 130 in Claude Code with its default tool search. The CLI carries all 74 and costs nothing until a command is typed.
+Worth knowing before suggesting it: the server's 13 core tools cost about 2,400 tokens a message in an app that loads every tool, and about 130 in Claude Code with its default tool search. The CLI carries all 74 and costs nothing until a command is typed.
 For occasional use the CLI is the better trade.

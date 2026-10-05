@@ -1,6 +1,6 @@
 /** Chat folders, and the contacts import and export pair. */
 
-import { z } from "zod";
+import { z } from "@thenavidm/slipway";
 import { confirmArg, defineTool, type ToolContext } from "./kit.js";
 import { displayName, page, sanitize } from "../format/render.js";
 
